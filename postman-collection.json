@@ -1,0 +1,539 @@
+{
+  "info": {
+    "name": "Spendly API",
+    "description": "Gelir-Gider Takip API - Postman Collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "spendly-api-collection",
+    "version": "1.0.0"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3001",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"Password123!\",\n  \"confirmPassword\": \"Password123!\",\n  \"name\": \"Test User\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.data && jsonData.data.tokens && jsonData.data.tokens.accessToken) {",
+                  "        pm.collectionVariables.set('accessToken', jsonData.data.tokens.accessToken);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"your_refresh_token_here\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "refresh"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"your_refresh_token_here\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "logout"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Me (Profile)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "me"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Categories",
+      "item": [
+        {
+          "name": "Get All Categories",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/categories?type=expense&include_defaults=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "categories"],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "expense",
+                  "description": "income | expense"
+                },
+                {
+                  "key": "include_defaults",
+                  "value": "true"
+                },
+                {
+                  "key": "include_stats",
+                  "value": "false"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Category by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/categories/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "categories", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "category-uuid-here"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Category",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Yeni Kategori\",\n  \"type\": \"expense\",\n  \"icon\": \"🍔\",\n  \"color\": \"#FF5733\",\n  \"description\": \"Açıklama\",\n  \"sort_order\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/categories",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "categories"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Category",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Güncellenmiş Kategori\",\n  \"icon\": \"🍕\",\n  \"color\": \"#00FF00\",\n  \"description\": \"Yeni açıklama\",\n  \"sort_order\": 2,\n  \"is_active\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/categories/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "categories", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "category-uuid-here"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Category",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/categories/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "categories", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "category-uuid-here"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Transactions",
+      "item": [
+        {
+          "name": "Create Income",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 1500.50,\n  \"description\": \"Maaş\",\n  \"category_id\": \"category-uuid-here\",\n  \"date\": \"2025-01-21\",\n  \"notes\": \"Ocak maaşı\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/transactions/income",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "transactions", "income"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Expense",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 250.75,\n  \"description\": \"Market alışverişi\",\n  \"category_id\": \"category-uuid-here\",\n  \"date\": \"2025-01-21\",\n  \"notes\": \"Haftalık alışveriş\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/transactions/expense",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "transactions", "expense"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Transactions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/transactions?type=expense&page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "transactions"],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "expense",
+                  "description": "income | expense"
+                },
+                {
+                  "key": "category_id",
+                  "value": "",
+                  "description": "UUID (optional)"
+                },
+                {
+                  "key": "start_date",
+                  "value": "",
+                  "description": "YYYY-MM-DD (optional)"
+                },
+                {
+                  "key": "end_date",
+                  "value": "",
+                  "description": "YYYY-MM-DD (optional)"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Transaction by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/transactions/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "transactions", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "transaction-uuid-here"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Transaction",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 1600.00,\n  \"description\": \"Güncellenmiş maaş\",\n  \"category_id\": \"category-uuid-here\",\n  \"date\": \"2025-01-21\",\n  \"notes\": \"Güncellenmiş notlar\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/transactions/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "transactions", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "transaction-uuid-here"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Transaction",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/transactions/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "transactions", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "transaction-uuid-here"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "item": [
+        {
+          "name": "Get Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/dashboard",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "dashboard"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/summary",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "summary"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "health"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
+
