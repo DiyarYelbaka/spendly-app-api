@@ -8,6 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../common/prisma.service';
+import { CategoriesService } from '../categories/categories.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
@@ -18,6 +19,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private categoriesService: CategoriesService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -72,6 +74,14 @@ export class AuthService {
 
     // JWT token oluştur
     const tokens = await this.generateTokens(user.id);
+
+    // Default kategorileri oluştur
+    try {
+      await this.categoriesService.createDefaultCategories(user.id);
+    } catch (error) {
+      // Default kategori oluşturma hatası kritik değil, log'la devam et
+      console.error('Default kategoriler oluşturulurken hata:', error);
+    }
 
     return {
       user,
@@ -206,7 +216,7 @@ export class AuthService {
       firstName: user.name.split(' ')[0] || user.name,
       initials: user.name
         .split(' ')
-        .map((n) => n[0])
+        .map((n: string) => n[0])
         .join('')
         .toUpperCase()
         .substring(0, 2),
