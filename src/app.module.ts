@@ -6,6 +6,7 @@ import { PrismaModule } from './common/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { CategoriesModule } from './categories/categories.module';
 import { TransactionsModule } from './transactions/transactions.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { TransactionsModule } from './transactions/transactions.module';
     AuthModule,
     CategoriesModule,
     TransactionsModule,
+    AnalyticsModule,
     // Modüller buraya eklenecek
   ],
   controllers: [AppController],
