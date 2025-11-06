@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,73 +7,57 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ============================================
-// USER MODEL
-// ============================================
 model User {
   id           String        @id @default(uuid())
   email        String        @unique
-  password     String        // bcrypt hashed
+  password     String
   name         String
   createdAt    DateTime      @default(now()) @map("created_at")
   updatedAt    DateTime      @updatedAt @map("updated_at")
-  
-  // Relations
   categories   Category[]
   transactions Transaction[]
-  
+
   @@map("users")
 }
 
-// ============================================
-// CATEGORY MODEL
-// ============================================
 model Category {
-  id          String        @id @default(uuid())
-  userId      String        @map("user_id")
-  name        String
-  type        String        // 'income' | 'expense'
-  icon        String?       // Emoji veya string
-  color       String?       // Hex color (#FF5733)
-  description String?       @db.Text
-  sortOrder   Int           @default(0) @map("sort_order")
-  isActive    Boolean       @default(true) @map("is_active")
-  isDefault   Boolean       @default(false) @map("is_default")
-  createdAt   DateTime      @default(now()) @map("created_at")
-  updatedAt   DateTime      @updatedAt @map("updated_at")
-  
-  // Relations
-  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id           String        @id @default(uuid())
+  userId       String        @map("user_id")
+  name         String
+  type         String
+  icon         String?
+  color        String?
+  description  String?
+  sortOrder    Int           @default(0) @map("sort_order")
+  isActive     Boolean       @default(true) @map("is_active")
+  isDefault    Boolean       @default(false) @map("is_default")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions Transaction[]
-  
+
   @@index([userId])
   @@index([userId, type])
   @@map("categories")
 }
 
-// ============================================
-// TRANSACTION MODEL
-// ============================================
 model Transaction {
-  id          String        @id @default(uuid())
-  userId      String        @map("user_id")
-  categoryId  String        @map("category_id")
-  amount      Decimal       @db.Decimal(10, 2)
-  type        String        // 'income' | 'expense'
-  description String        @db.VarChar(500)
-  date        DateTime      @db.Date
-  notes       String?       @db.Text
-  createdAt   DateTime      @default(now()) @map("created_at")
-  updatedAt   DateTime      @updatedAt @map("updated_at")
-  
-  // Relations
-  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  category    Category      @relation(fields: [categoryId], references: [id])
-  
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  categoryId  String   @map("category_id")
+  amount      Decimal  @db.Decimal(10, 2)
+  type        String
+  description String   @db.VarChar(500)
+  date        DateTime @db.Date
+  notes       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  category    Category @relation(fields: [categoryId], references: [id])
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
   @@index([userId, date])
   @@index([userId, type])
   @@index([categoryId])
   @@map("transactions")
 }
-
