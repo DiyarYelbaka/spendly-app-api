@@ -32,6 +32,7 @@ export class CategoriesController {
   @ApiOperation({ summary: 'Yeni kategori oluştur' })
   @ApiResponse({ status: 201, description: 'Kategori başarıyla oluşturuldu' })
   @ApiResponse({ status: 400, description: 'Validation hatası' })
+  @ApiResponse({ status: 409, description: 'Kategori adı zaten mevcut' })
   async create(
     @Body() dto: CreateCategoryDto,
     @CurrentUser() user: any,

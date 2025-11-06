@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
@@ -13,6 +14,24 @@ export class CategoriesService {
   constructor(private prisma: PrismaService) {}
 
   async create(dto: CreateCategoryDto, userId: string) {
+    // Duplicate name kontrolü (aynı user, aynı type, aynı name)
+    const existing = await this.prisma.category.findFirst({
+      where: {
+        userId,
+        name: dto.name,
+        type: dto.type,
+        isActive: true,
+      },
+    });
+
+    if (existing) {
+      throw new ConflictException({
+        message: 'Bu isimde bir kategori zaten mevcut',
+        messageKey: 'CATEGORY_NAME_EXISTS',
+        error: 'CONFLICT',
+      });
+    }
+
     const category = await this.prisma.category.create({
       data: {
         name: dto.name,
@@ -112,7 +131,7 @@ export class CategoriesService {
 
     if (includeStats) {
       categoriesWithStats = await Promise.all(
-        categories.map(async (category) => {
+        categories.map(async (category: any) => {
           const stats = await this.prisma.transaction.aggregate({
             where: {
               categoryId: category.id,
@@ -135,7 +154,7 @@ export class CategoriesService {
     }
 
     return {
-      categories: categoriesWithStats.map((cat) => this.formatCategory(cat)),
+      categories: categoriesWithStats.map((cat: any) => this.formatCategory(cat)),
       pagination: {
         total,
         current_page: page,
@@ -234,24 +253,26 @@ export class CategoriesService {
       });
 
       if (existing) {
-        throw new BadRequestException({
+        throw new ConflictException({
           message: 'Bu isimde bir kategori zaten mevcut',
           messageKey: 'CATEGORY_NAME_EXISTS',
-          error: 'BAD_REQUEST',
+          error: 'CONFLICT',
         });
       }
     }
 
+    // Sadece gönderilen field'ları güncelle
+    const updateData: any = {};
+    if (dto.name !== undefined) updateData.name = dto.name;
+    if (dto.icon !== undefined) updateData.icon = dto.icon;
+    if (dto.color !== undefined) updateData.color = dto.color;
+    if (dto.description !== undefined) updateData.description = dto.description;
+    if (dto.sort_order !== undefined) updateData.sortOrder = dto.sort_order;
+    if (dto.is_active !== undefined) updateData.isActive = dto.is_active;
+
     const updated = await this.prisma.category.update({
       where: { id },
-      data: {
-        name: dto.name,
-        icon: dto.icon,
-        color: dto.color,
-        description: dto.description,
-        sortOrder: dto.sort_order,
-        isActive: dto.is_active,
-      },
+      data: updateData,
       select: {
         id: true,
         name: true,
