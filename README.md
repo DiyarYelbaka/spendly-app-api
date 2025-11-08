@@ -4,32 +4,44 @@ Gelir-Gider Takip Mobil Uygulaması için REST API Backend
 
 ## 📚 Dokümantasyon
 
-**ÖNEMLİ**: Projeyi anlamak için önce `docs/` klasöründeki dokümantasyonu okuyun!
+**ÖNEMLİ**: Projeyi anlamak için önce `documentation/` klasöründeki kapsamlı dokümantasyonu okuyun!
 
-### 📁 Dokümantasyon Yapısı
+### 📁 Kapsamlı Dokümantasyon (Yeni)
 
 ```
-docs/
-├── README.md                    # Ana indeks
-├── PROGRESS.md                  # ⭐ Proje durumu
-├── NEXT_STEPS.md                # ⭐ Sonraki adımlar
-├── README_FOR_AI.md             # 🤖 AI için özel rehber
-├── 01-getting-started/          # 🚀 Başlangıç rehberi
-├── 02-reference/                # 📖 Referans dokümantasyonu
-└── 03-guides/                   # 📚 Geliştirme rehberleri
+documentation/
+├── README.md              # Ana indeks ve genel bakış
+├── SETUP.md              # Kurulum ve yapılandırma talimatları
+├── ARCHITECTURE.md       # Proje yapısı ve mimari açıklamaları
+├── MODULES.md            # Tüm modüllerin detaylı açıklamaları
+├── ENDPOINTS.md          # API endpoint'leri ve örnek request/response'lar
+├── DATABASE.md           # Veritabanı şeması ve modeller
+├── AUTHENTICATION.md     # JWT kimlik doğrulama sistemi
+├── CORE.md               # Core modül bileşenleri detayları
+└── ERRORS.md             # Hata yönetimi ve hata kodları
 ```
 
 ### 🚀 Hızlı Başlangıç
 
-**Yeni bir chat açtığınızda önce bunları okuyun:**
-1. **[docs/PROGRESS.md](./docs/PROGRESS.md)** - Projenin mevcut durumu ve tamamlanan işler ⭐
-2. **[docs/NEXT_STEPS.md](./docs/NEXT_STEPS.md)** - Sonraki adımlar ve yapılacaklar ⭐
+**Yeni başlayanlar için önerilen okuma sırası:**
 
-**Sonra:**
-3. **[docs/README.md](./docs/README.md)** - Dokümantasyon indeksi
-4. **[docs/01-getting-started/PROJECT_OVERVIEW.md](./docs/01-getting-started/PROJECT_OVERVIEW.md)** - Proje genel bilgileri
-5. **[docs/03-guides/FRONTEND_DEVELOPER_GUIDE.md](./docs/03-guides/FRONTEND_DEVELOPER_GUIDE.md)** - Frontend developer için rehber
-6. **[docs/03-guides/NEW_FEATURE.md](./docs/03-guides/NEW_FEATURE.md)** - Yeni özellik ekleme checklist'i
+1. **[documentation/README.md](./documentation/README.md)** - Ana indeks ve genel bakış
+2. **[documentation/SETUP.md](./documentation/SETUP.md)** - Kurulum ve yapılandırma
+3. **[documentation/ARCHITECTURE.md](./documentation/ARCHITECTURE.md)** - Proje yapısı ve mimari
+4. **[documentation/AUTHENTICATION.md](./documentation/AUTHENTICATION.md)** - Kimlik doğrulama sistemi
+5. **[documentation/MODULES.md](./documentation/MODULES.md)** - Her modülün ne yaptığını öğrenmek için
+6. **[documentation/ENDPOINTS.md](./documentation/ENDPOINTS.md)** - API endpoint'lerini kullanmak için
+
+**Detaylı Dokümantasyon:**
+- **[documentation/CORE.md](./documentation/CORE.md)** - Core bileşenleri derinlemesine anlamak için
+- **[documentation/DATABASE.md](./documentation/DATABASE.md)** - Veritabanı yapısını anlamak için
+- **[documentation/ERRORS.md](./documentation/ERRORS.md)** - Hata yönetimini anlamak için
+
+### 📁 Eski Dokümantasyon
+
+Eski dokümantasyon `docs/` klasöründe mevcuttur:
+- **[docs/PROGRESS.md](./docs/PROGRESS.md)** - Proje durumu
+- **[docs/NEXT_STEPS.md](./docs/NEXT_STEPS.md)** - Sonraki adımlar
 
 ## 🛠️ Teknoloji Stack
 
@@ -55,16 +67,17 @@ yarn prisma migrate dev
 yarn start:dev
 ```
 
-Detaylı kurulum için [docs/03-guides/DEVELOPMENT_GUIDE.md](./docs/03-guides/DEVELOPMENT_GUIDE.md) dosyasına bakınız.
+Detaylı kurulum için **[documentation/SETUP.md](./documentation/SETUP.md)** dosyasına bakınız.
 
 ## 📁 Proje Yapısı
 
 ```
 spendly-app-api/
-├── src/              # Source code
-├── prisma/           # Database schema
-├── docs/             # Dokümantasyon
-├── mobile-app/       # Frontend (React Native)
+├── src/                  # Source code
+├── prisma/               # Database schema
+├── documentation/        # Kapsamlı dokümantasyon (YENİ)
+├── docs/                 # Eski dokümantasyon
+├── mobile-app/           # Frontend (React Native)
 └── README.md
 ```
 
@@ -72,7 +85,8 @@ spendly-app-api/
 
 - Frontend uygulaması `mobile-app/` klasöründe bulunmaktadır
 - Tüm API endpoint'leri frontend'in beklentilerine göre tasarlanmalıdır
-- Detaylı bilgi için `docs/` klasöründeki dokümantasyonu inceleyin
+- **Yeni kapsamlı dokümantasyon** `documentation/` klasöründe bulunmaktadır
+- Eski dokümantasyon `docs/` klasöründe mevcuttur
 
 ## 🔗 İlgili Dosyalar
 
