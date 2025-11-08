@@ -4,10 +4,11 @@ import {
   BadRequestException,
   Logger,
 } from '@nestjs/common';
-import { PrismaService } from '../common/prisma.service';
+import { PrismaService } from '../core';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
-import { ErrorHandler } from '../common/utils/error-handler.util';
+import { TransactionQueryDto } from './dto/transaction-query.dto';
+import { ErrorHandler, parsePagination, createPaginationResult, formatTransaction } from '../core';
 
 @Injectable()
 export class TransactionsService {
@@ -61,7 +62,7 @@ export class TransactionsService {
         },
       });
 
-      return this.formatTransaction(transaction);
+      return formatTransaction(transaction);
     } catch (error) {
       ErrorHandler.handleError(
         error,
@@ -118,7 +119,7 @@ export class TransactionsService {
         },
       });
 
-      return this.formatTransaction(transaction);
+      return formatTransaction(transaction);
     } catch (error) {
       ErrorHandler.handleError(
         error,
@@ -129,29 +130,16 @@ export class TransactionsService {
     }
   }
 
-  async findAll(
-    userId: string,
-    query: {
-      type?: string;
-      category_id?: string;
-      start_date?: string;
-      end_date?: string;
-      search?: string;
-      page?: string;
-      limit?: string;
-    },
-  ) {
+  async findAll(userId: string, query: TransactionQueryDto) {
     try {
-      const page = parseInt(query.page || '1', 10);
-      const limit = Math.min(parseInt(query.limit || '20', 10), 100);
-      const skip = (page - 1) * limit;
+      const { page, limit, skip } = parsePagination(query.page, query.limit);
 
       const where: any = {
         userId,
       };
 
       // Type filtresi
-      if (query.type && (query.type === 'income' || query.type === 'expense')) {
+      if (query.type) {
         where.type = query.type;
       }
 
@@ -202,12 +190,8 @@ export class TransactionsService {
       ]);
 
       return {
-        transactions: transactions.map((t: any) => this.formatTransaction(t)),
-        pagination: {
-          total,
-          current_page: page,
-          per_page: limit,
-        },
+        transactions: transactions.map((t: any) => formatTransaction(t)),
+        pagination: createPaginationResult(total, page, limit),
       };
     } catch (error) {
       ErrorHandler.handleError(
@@ -246,7 +230,7 @@ export class TransactionsService {
         });
       }
 
-      return this.formatTransaction(transaction);
+      return formatTransaction(transaction);
     } catch (error) {
       ErrorHandler.handleError(
         error,
@@ -317,7 +301,7 @@ export class TransactionsService {
         },
       });
 
-      return this.formatTransaction(updated);
+      return formatTransaction(updated);
     } catch (error) {
       ErrorHandler.handleError(
         error,
@@ -349,9 +333,7 @@ export class TransactionsService {
         where: { id },
       });
 
-      return {
-        message: 'İşlem başarıyla silindi',
-      };
+      return { message: 'İşlem başarıyla silindi' };
     } catch (error) {
       ErrorHandler.handleError(
         error,
@@ -362,21 +344,5 @@ export class TransactionsService {
     }
   }
 
-  /**
-   * Transaction formatını snake_case'e çevir
-   */
-  private formatTransaction(transaction: any) {
-    return {
-      id: transaction.id,
-      amount: transaction.amount.toNumber(),
-      type: transaction.type,
-      description: transaction.description,
-      category: transaction.category,
-      date: transaction.date.toISOString().split('T')[0], // YYYY-MM-DD format
-      notes: transaction.notes,
-      created_at: transaction.createdAt,
-      ...(transaction.updatedAt && { updated_at: transaction.updatedAt }),
-    };
-  }
 }
 

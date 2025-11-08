@@ -7,7 +7,7 @@ import {
 } from '@nestjs/swagger';
 import { AnalyticsService } from './analytics.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { CurrentUser, UserPayload } from '../core';
 
 @ApiTags('analytics')
 @Controller('analytics')
@@ -19,23 +19,15 @@ export class AnalyticsController {
   @Get('dashboard')
   @ApiOperation({ summary: 'Dashboard verileri' })
   @ApiResponse({ status: 200, description: 'Dashboard verileri alındı' })
-  async getDashboard(@CurrentUser() user: any) {
-    const result = await this.analyticsService.getDashboard(user.id);
-    return {
-      success: true,
-      data: result,
-    };
+  async getDashboard(@CurrentUser() user: UserPayload) {
+    return await this.analyticsService.getDashboard(user.id);
   }
 
   @Get('summary')
   @ApiOperation({ summary: 'Finansal özet' })
   @ApiResponse({ status: 200, description: 'Finansal özet alındı' })
-  async getSummary(@CurrentUser() user: any) {
-    const result = await this.analyticsService.getSummary(user.id);
-    return {
-      success: true,
-      data: result,
-    };
+  async getSummary(@CurrentUser() user: UserPayload) {
+    return await this.analyticsService.getSummary(user.id);
   }
 }
 

@@ -6,10 +6,11 @@ import {
   ConflictException,
   Logger,
 } from '@nestjs/common';
-import { PrismaService } from '../common/prisma.service';
+import { PrismaService } from '../core';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
-import { ErrorHandler } from '../common/utils/error-handler.util';
+import { CategoryQueryDto } from './dto/category-query.dto';
+import { ErrorHandler, parsePagination, createPaginationResult, formatCategory } from '../core';
 
 @Injectable()
 export class CategoriesService {
@@ -63,7 +64,7 @@ export class CategoriesService {
         },
       });
 
-      return this.formatCategory(category);
+      return formatCategory(category);
     } catch (error) {
       ErrorHandler.handleError(
         error,
@@ -74,21 +75,9 @@ export class CategoriesService {
     }
   }
 
-  async findAll(
-    userId: string,
-    query: {
-      type?: string;
-      include_defaults?: string;
-      include_stats?: string;
-      search?: string;
-      page?: string;
-      limit?: string;
-    },
-  ) {
+  async findAll(userId: string, query: CategoryQueryDto) {
     try {
-      const page = parseInt(query.page || '1', 10);
-      const limit = Math.min(parseInt(query.limit || '20', 10), 100);
-      const skip = (page - 1) * limit;
+      const { page, limit, skip } = parsePagination(query.page, query.limit);
 
       const where: any = {
         userId,
@@ -96,7 +85,7 @@ export class CategoriesService {
       };
 
       // Type filtresi
-      if (query.type && (query.type === 'income' || query.type === 'expense')) {
+      if (query.type) {
         where.type = query.type;
       }
 
@@ -109,7 +98,7 @@ export class CategoriesService {
       }
 
       // Include defaults kontrolü
-      const includeDefaults = query.include_defaults !== 'false';
+      const includeDefaults = query.include_defaults !== false;
 
       const [categories, total] = await Promise.all([
         this.prisma.category.findMany({
@@ -142,7 +131,7 @@ export class CategoriesService {
       ]);
 
       // Stats hesaplama (opsiyonel)
-      const includeStats = query.include_stats === 'true';
+      const includeStats = query.include_stats === true;
       let categoriesWithStats = categories;
 
       if (includeStats) {
@@ -170,12 +159,8 @@ export class CategoriesService {
       }
 
       return {
-        categories: categoriesWithStats.map((cat: any) => this.formatCategory(cat)),
-        pagination: {
-          total,
-          current_page: page,
-          per_page: limit,
-        },
+        categories: categoriesWithStats.map((cat: any) => formatCategory(cat)),
+        pagination: createPaginationResult(total, page, limit),
       };
     } catch (error) {
       ErrorHandler.handleError(
@@ -222,7 +207,7 @@ export class CategoriesService {
         });
       }
 
-      let formattedCategory = this.formatCategory(category);
+      let formattedCategory = formatCategory(category);
 
       if (includeStats) {
         const stats = await this.prisma.transaction.aggregate({
@@ -324,7 +309,7 @@ export class CategoriesService {
         },
       });
 
-      return this.formatCategory(updated);
+      return formatCategory(updated);
     } catch (error) {
       ErrorHandler.handleError(
         error,
@@ -385,9 +370,7 @@ export class CategoriesService {
         },
       });
 
-      return {
-        message: 'Kategori başarıyla silindi',
-      };
+      return { message: 'Kategori başarıyla silindi' };
     } catch (error) {
       ErrorHandler.handleError(
         error,
@@ -445,24 +428,5 @@ export class CategoriesService {
     }
   }
 
-  /**
-   * Category formatını snake_case'e çevir
-   */
-  private formatCategory(category: any) {
-    return {
-      id: category.id,
-      name: category.name,
-      type: category.type,
-      icon: category.icon,
-      color: category.color,
-      description: category.description,
-      sort_order: category.sortOrder,
-      is_active: category.isActive,
-      is_default: category.isDefault,
-      created_at: category.createdAt,
-      ...(category.updatedAt && { updated_at: category.updatedAt }),
-      ...(category.stats && { stats: category.stats }),
-    };
-  }
 }
 

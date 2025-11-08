@@ -8,11 +8,11 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
-import { PrismaService } from '../common/prisma.service';
+import { PrismaService } from '../core';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
-import { ErrorHandler } from '../common/utils/error-handler.util';
+import { ErrorHandler } from '../core';
 
 @Injectable()
 export class AuthService {

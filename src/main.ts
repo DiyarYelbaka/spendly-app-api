@@ -3,8 +3,8 @@ import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
-import { HttpExceptionFilter } from './common/filters/http-exception.filter';
-import { TransformInterceptor } from './common/interceptors/transform.interceptor';
+import { HttpExceptionFilter, TransformInterceptor } from './core';
+import appConfig from './config/app.config';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -16,9 +16,10 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   // CORS
+  const config = appConfig();
   app.enableCors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
-    credentials: true,
+    origin: config.cors.origin,
+    credentials: config.cors.credentials,
   });
 
   // Global exception filter (Frontend'in beklediği error formatı)
@@ -40,20 +41,20 @@ async function bootstrap() {
   );
 
   // Swagger documentation
-  const config = new DocumentBuilder()
-    .setTitle('Spendly API')
-    .setDescription('Gelir-Gider Takip API')
-    .setVersion('1.0')
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle(config.swagger.title)
+    .setDescription(config.swagger.description)
+    .setVersion(config.swagger.version)
     .addBearerAuth()
     .build();
 
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
+  const document = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup(config.swagger.path, app, document);
 
-  const port = process.env.PORT || 3001;
+  const port = config.app.port;
   await app.listen(port);
   console.log(`🚀 Application is running on: http://localhost:${port}/api`);
-  console.log(`📚 Swagger documentation: http://localhost:${port}/api/docs`);
+  console.log(`📚 Swagger documentation: http://localhost:${port}/${config.swagger.path}`);
 }
 
 bootstrap();

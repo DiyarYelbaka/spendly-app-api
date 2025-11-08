@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../common/prisma.service';
-import { ErrorHandler } from '../common/utils/error-handler.util';
+import { PrismaService, ErrorHandler } from '../core';
 
 @Injectable()
 export class AnalyticsService {

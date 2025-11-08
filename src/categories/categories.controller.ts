@@ -18,8 +18,9 @@ import {
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
+import { CategoryQueryDto } from './dto/category-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { CurrentUser, UserPayload } from '../core';
 
 @ApiTags('categories')
 @Controller('categories')
@@ -35,29 +36,19 @@ export class CategoriesController {
   @ApiResponse({ status: 409, description: 'Kategori adı zaten mevcut' })
   async create(
     @Body() dto: CreateCategoryDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserPayload,
   ) {
-    const result = await this.categoriesService.create(dto, user.id);
-    return {
-      success: true,
-      message_key: 'CATEGORY_CREATED',
-      message: 'Kategori başarıyla oluşturuldu',
-      data: result,
-    };
+    return await this.categoriesService.create(dto, user.id);
   }
 
   @Get()
   @ApiOperation({ summary: 'Kategorileri listele' })
   @ApiResponse({ status: 200, description: 'Kategoriler listelendi' })
-  async findAll(@Query() query: any, @CurrentUser() user: any) {
-    const result = await this.categoriesService.findAll(user.id, query);
-    return {
-      success: true,
-      data: {
-        categories: result.categories,
-        pagination: result.pagination,
-      },
-    };
+  async findAll(
+    @Query() query: CategoryQueryDto,
+    @CurrentUser() user: UserPayload,
+  ) {
+    return await this.categoriesService.findAll(user.id, query);
   }
 
   @Get(':id')
@@ -67,17 +58,13 @@ export class CategoriesController {
   async findOne(
     @Param('id') id: string,
     @Query('include_stats') includeStats: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserPayload,
   ) {
-    const result = await this.categoriesService.findOne(
+    return await this.categoriesService.findOne(
       id,
       user.id,
       includeStats === 'true',
     );
-    return {
-      success: true,
-      data: result,
-    };
   }
 
   @Put(':id')
@@ -88,15 +75,9 @@ export class CategoriesController {
   async update(
     @Param('id') id: string,
     @Body() dto: UpdateCategoryDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserPayload,
   ) {
-    const result = await this.categoriesService.update(id, dto, user.id);
-    return {
-      success: true,
-      message_key: 'CATEGORY_UPDATED',
-      message: 'Kategori başarıyla güncellendi',
-      data: result,
-    };
+    return await this.categoriesService.update(id, dto, user.id);
   }
 
   @Delete(':id')
@@ -104,14 +85,8 @@ export class CategoriesController {
   @ApiResponse({ status: 200, description: 'Kategori başarıyla silindi' })
   @ApiResponse({ status: 404, description: 'Kategori bulunamadı' })
   @ApiResponse({ status: 403, description: 'Kategori silinemez' })
-  async remove(@Param('id') id: string, @CurrentUser() user: any) {
-    await this.categoriesService.remove(id, user.id);
-    return {
-      success: true,
-      message_key: 'CATEGORY_DELETED',
-      message: 'Kategori başarıyla silindi',
-      data: null,
-    };
+  async remove(@Param('id') id: string, @CurrentUser() user: UserPayload) {
+    return await this.categoriesService.remove(id, user.id);
   }
 }
 

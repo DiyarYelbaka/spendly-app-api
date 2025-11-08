@@ -18,8 +18,9 @@ import {
 import { TransactionsService } from './transactions.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
+import { TransactionQueryDto } from './dto/transaction-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { CurrentUser, UserPayload } from '../core';
 
 @ApiTags('transactions')
 @Controller('transactions')
@@ -34,15 +35,9 @@ export class TransactionsController {
   @ApiResponse({ status: 400, description: 'Validation hatası veya geçersiz kategori' })
   async createIncome(
     @Body() dto: CreateTransactionDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserPayload,
   ) {
-    const result = await this.transactionsService.createIncome(dto, user.id);
-    return {
-      success: true,
-      message_key: 'TRANSACTION_CREATED',
-      message: 'Gelir başarıyla eklendi',
-      data: result,
-    };
+    return await this.transactionsService.createIncome(dto, user.id);
   }
 
   @Post('expense')
@@ -51,41 +46,27 @@ export class TransactionsController {
   @ApiResponse({ status: 400, description: 'Validation hatası veya geçersiz kategori' })
   async createExpense(
     @Body() dto: CreateTransactionDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserPayload,
   ) {
-    const result = await this.transactionsService.createExpense(dto, user.id);
-    return {
-      success: true,
-      message_key: 'TRANSACTION_CREATED',
-      message: 'Gider başarıyla eklendi',
-      data: result,
-    };
+    return await this.transactionsService.createExpense(dto, user.id);
   }
 
   @Get()
   @ApiOperation({ summary: 'İşlemleri listele' })
   @ApiResponse({ status: 200, description: 'İşlemler listelendi' })
-  async findAll(@Query() query: any, @CurrentUser() user: any) {
-    const result = await this.transactionsService.findAll(user.id, query);
-    return {
-      success: true,
-      data: {
-        transactions: result.transactions,
-        pagination: result.pagination,
-      },
-    };
+  async findAll(
+    @Query() query: TransactionQueryDto,
+    @CurrentUser() user: UserPayload,
+  ) {
+    return await this.transactionsService.findAll(user.id, query);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Tek işlem detayı' })
   @ApiResponse({ status: 200, description: 'İşlem detayı' })
   @ApiResponse({ status: 404, description: 'İşlem bulunamadı' })
-  async findOne(@Param('id') id: string, @CurrentUser() user: any) {
-    const result = await this.transactionsService.findOne(id, user.id);
-    return {
-      success: true,
-      data: result,
-    };
+  async findOne(@Param('id') id: string, @CurrentUser() user: UserPayload) {
+    return await this.transactionsService.findOne(id, user.id);
   }
 
   @Put(':id')
@@ -96,29 +77,17 @@ export class TransactionsController {
   async update(
     @Param('id') id: string,
     @Body() dto: UpdateTransactionDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserPayload,
   ) {
-    const result = await this.transactionsService.update(id, dto, user.id);
-    return {
-      success: true,
-      message_key: 'TRANSACTION_UPDATED',
-      message: 'İşlem başarıyla güncellendi',
-      data: result,
-    };
+    return await this.transactionsService.update(id, dto, user.id);
   }
 
   @Delete(':id')
   @ApiOperation({ summary: 'İşlem sil' })
   @ApiResponse({ status: 200, description: 'İşlem başarıyla silindi' })
   @ApiResponse({ status: 404, description: 'İşlem bulunamadı' })
-  async remove(@Param('id') id: string, @CurrentUser() user: any) {
-    await this.transactionsService.remove(id, user.id);
-    return {
-      success: true,
-      message_key: 'TRANSACTION_DELETED',
-      message: 'İşlem başarıyla silindi',
-      data: null,
-    };
+  async remove(@Param('id') id: string, @CurrentUser() user: UserPayload) {
+    return await this.transactionsService.remove(id, user.id);
   }
 }
 
