@@ -305,8 +305,8 @@ export class TransactionsService {
    * @param userId: string - Kullanıcının benzersiz ID'si
    * @param query: TransactionQueryDto - Sorgu parametreleri (filtreleme, sayfalama, arama)
    * 
-   * @returns Promise<{transactions: Transaction[], pagination: PaginationResult}>
-   *   - transactions: İşlem listesi
+   * @returns Promise<{items: Transaction[], pagination: PaginationResult}>
+   *   - items: İşlem listesi
    *   - pagination: Sayfalama bilgileri
    * 
    * İş Akışı:
@@ -417,7 +417,7 @@ export class TransactionsService {
        * count: Toplam kayıt sayısını hesaplar
        *   - where: Aynı filtreleme kriterleri (sayfalama olmadan)
        * 
-       * transactions: İşlem listesi
+       * items: İşlem listesi
        * total: Toplam işlem sayısı (sayfalama bilgileri için)
        */
       const [transactions, total] = await Promise.all([
@@ -455,7 +455,7 @@ export class TransactionsService {
        *   Sonuç: { page, limit, total, totalPages } gibi bilgiler
        */
       return {
-        transactions: transactions.map((t: any) => formatTransaction(t)),
+        items: transactions.map((t: any) => formatTransaction(t)),
         pagination: createPaginationResult(total, page, limit),
       };
     } catch (error) {

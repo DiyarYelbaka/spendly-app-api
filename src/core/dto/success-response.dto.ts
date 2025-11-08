@@ -70,7 +70,7 @@ export class SuccessResponseDto<T = any> {
    * @ApiProperty: Swagger dokümantasyonunda bu alanın özelliklerini belirtir
    * 
    * T: Generic tip (herhangi bir tip olabilir)
-   *   Örnek: Category, Transaction[], { categories: [...], pagination: {...} }
+   *   Örnek: Category, Transaction[], { items: [...], pagination: {...} }
    */
   @ApiProperty({ description: 'Response data' })
   data: T;

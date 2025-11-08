@@ -149,7 +149,7 @@ export class CategoriesController {
    * Dönüş Değeri:
    * - 200 OK: Kategoriler başarıyla listelendi
    *   {
-   *     categories: [...], // Kategori listesi
+   *     items: [...], // Kategori listesi
    *     pagination: {     // Sayfalama bilgileri
    *       page: 1,
    *       limit: 20,

@@ -181,7 +181,7 @@ export class TransactionsController {
    * Dönüş Değeri:
    * - 200 OK: İşlemler başarıyla listelendi
    *   {
-   *     transactions: [...], // İşlem listesi
+   *     items: [...], // İşlem listesi
    *     pagination: {         // Sayfalama bilgileri
    *       page: 1,
    *       limit: 20,

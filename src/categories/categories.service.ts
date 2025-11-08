@@ -310,7 +310,7 @@ export class CategoriesService {
       }
 
       return {
-        categories: categoriesWithStats.map((cat: any) => formatCategory(cat)),
+        items: categoriesWithStats.map((cat: any) => formatCategory(cat)),
         pagination: createPaginationResult(total, page, limit),
       };
     } catch (error) {
