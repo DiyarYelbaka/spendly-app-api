@@ -1,22 +1,95 @@
+// NestJS: Backend framework'ü
+// Controller, Post, Get, UseGuards: HTTP isteklerini yönetmek için kullanılan decorator'lar
 import { Controller, Post, Body, Get, UseGuards } from '@nestjs/common';
+
+// Swagger: API dokümantasyonu için kullanılan decorator'lar
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
+
+// AuthService: Kimlik doğrulama işlemlerini yapan servis sınıfı
 import { AuthService } from './auth.service';
+
+// DTO'lar: Gelen verilerin yapısını tanımlayan sınıflar
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+
+// JwtAuthGuard: JWT token kontrolü yapan guard (koruyucu)
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+
+// CurrentUser: Mevcut kullanıcı bilgisini almak için kullanılan decorator
+// UserPayload: Kullanıcı bilgilerinin tipi
 import { CurrentUser, UserPayload } from '../core';
 
+/**
+ * AuthController Sınıfı
+ * 
+ * Bu sınıf, kimlik doğrulama (authentication) ile ilgili HTTP isteklerini karşılar.
+ * Controller'ın görevi:
+ * 1. HTTP isteklerini almak (POST, GET)
+ * 2. Gelen verileri doğrulamak (DTO ile)
+ * 3. İş mantığını service'e yönlendirmek
+ * 4. Service'den gelen sonucu HTTP yanıtı olarak döndürmek
+ * 
+ * @ApiTags('auth'): Swagger dokümantasyonunda bu controller'ı "auth" grubunda gösterir
+ * @Controller('auth'): Bu controller'ın URL'i /api/auth olur
+ * 
+ * NOT: Bu controller'da @UseGuards(JwtAuthGuard) yok çünkü:
+ * - register ve login endpoint'leri herkese açık olmalı (token gerektirmez)
+ * - Sadece /me endpoint'i token gerektirir (kendi üzerinde @UseGuards var)
+ */
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
+  /**
+   * Constructor (Yapıcı Fonksiyon)
+   * 
+   * Bu fonksiyon, controller oluşturulduğunda çalışır.
+   * AuthService'i buraya enjekte eder (dependency injection).
+   * 
+   * private readonly: Bu değişken sadece bu sınıf içinde kullanılabilir ve değiştirilemez
+   * authService: Kimlik doğrulama işlemlerini yapan servis
+   */
   constructor(private readonly authService: AuthService) {}
 
+  /**
+   * register: Yeni kullanıcı kaydı endpoint'i
+   * 
+   * HTTP Metodu: POST
+   * URL: /api/auth/register
+   * 
+   * Bu endpoint, yeni bir kullanıcı hesabı oluşturur.
+   * 
+   * @Post('register'): Bu fonksiyonun POST /api/auth/register isteğine yanıt vereceğini belirtir
+   * 
+   * Parametreler:
+   * @Body() dto: Request body'den gelen kullanıcı bilgileri (RegisterDto formatında)
+   *   - email: Kullanıcı email adresi (zorunlu)
+   *   - password: Kullanıcı şifresi (zorunlu, min 6 karakter, büyük/küçük harf ve rakam içermeli)
+   *   - confirmPassword: Şifre tekrarı (zorunlu, password ile eşleşmeli)
+   *   - name: Kullanıcı adı (zorunlu, 2-100 karakter, sadece harfler ve boşluk)
+   * 
+   * Dönüş Değeri:
+   * - 201 Created: Kullanıcı başarıyla oluşturuldu
+   *   {
+   *     user: { id, email, name, createdAt },
+   *     tokens: { accessToken, refreshToken, expiresAt }
+   *   }
+   * - 400 Bad Request: Gönderilen veriler geçersiz veya şifreler eşleşmiyor
+   * - 409 Conflict: Bu email adresi zaten kullanılıyor
+   * 
+   * İş Akışı:
+   * 1. Email kontrolü yapılır (aynı email'de kullanıcı var mı?)
+   * 2. Şifre ve confirmPassword eşleşmesi kontrol edilir
+   * 3. Şifre hash'lenir (bcrypt ile şifrelenir)
+   * 4. Kullanıcı veritabanına kaydedilir
+   * 5. Varsayılan kategoriler oluşturulur
+   * 6. JWT token'lar oluşturulur ve döndürülür
+   */
   @Post('register')
   @ApiOperation({ summary: 'Yeni kullanıcı kaydı' })
   @ApiResponse({
@@ -26,32 +99,154 @@ export class AuthController {
   @ApiResponse({ status: 400, description: 'Validation hatası' })
   @ApiResponse({ status: 409, description: 'Email zaten kullanılıyor' })
   async register(@Body() dto: RegisterDto) {
+    // Service'e kullanıcı kaydı isteği gönderilir
+    // dto: Kullanıcıdan gelen kayıt bilgileri
     return await this.authService.register(dto);
   }
 
+  /**
+   * login: Kullanıcı girişi endpoint'i
+   * 
+   * HTTP Metodu: POST
+   * URL: /api/auth/login
+   * 
+   * Bu endpoint, mevcut bir kullanıcının giriş yapmasını sağlar.
+   * 
+   * @Post('login'): Bu fonksiyonun POST /api/auth/login isteğine yanıt vereceğini belirtir
+   * 
+   * Parametreler:
+   * @Body() dto: Request body'den gelen giriş bilgileri (LoginDto formatında)
+   *   - email: Kullanıcı email adresi (zorunlu)
+   *   - password: Kullanıcı şifresi (zorunlu)
+   * 
+   * Dönüş Değeri:
+   * - 200 OK: Giriş başarılı
+   *   {
+   *     user: { id, email, name, createdAt },
+   *     tokens: { accessToken, refreshToken, expiresAt }
+   *   }
+   * - 401 Unauthorized: Email veya şifre hatalı
+   * 
+   * İş Akışı:
+   * 1. Email ile kullanıcı bulunur
+   * 2. Şifre kontrol edilir (hash'lenmiş şifre ile karşılaştırılır)
+   * 3. Şifre doğruysa JWT token'lar oluşturulur ve döndürülür
+   * 4. Şifre yanlışsa 401 hatası döndürülür
+   */
   @Post('login')
   @ApiOperation({ summary: 'Kullanıcı girişi' })
   @ApiResponse({ status: 200, description: 'Giriş başarılı' })
   @ApiResponse({ status: 401, description: 'Email veya şifre hatalı' })
   async login(@Body() dto: LoginDto) {
+    // Service'e giriş isteği gönderilir
+    // dto: Kullanıcıdan gelen giriş bilgileri
     return await this.authService.login(dto);
   }
 
+  /**
+   * refresh: Access token yenileme endpoint'i
+   * 
+   * HTTP Metodu: POST
+   * URL: /api/auth/refresh
+   * 
+   * Bu endpoint, süresi dolmuş access token'ı yenilemek için kullanılır.
+   * Refresh token hala geçerliyse, yeni bir access token oluşturulur.
+   * 
+   * @Post('refresh'): Bu fonksiyonun POST /api/auth/refresh isteğine yanıt vereceğini belirtir
+   * 
+   * Parametreler:
+   * @Body() dto: Request body'den gelen refresh token (RefreshTokenDto formatında)
+   *   - refreshToken: Refresh token string'i (zorunlu)
+   * 
+   * Dönüş Değeri:
+   * - 200 OK: Token yenilendi
+   *   {
+   *     accessToken: "yeni_access_token",
+   *     user: { id, email, name, createdAt }
+   *   }
+   * - 401 Unauthorized: Geçersiz refresh token
+   * 
+   * İş Akışı:
+   * 1. Refresh token doğrulanır (JWT verify)
+   * 2. Token'dan kullanıcı ID'si çıkarılır
+   * 3. Kullanıcı veritabanından bulunur
+   * 4. Yeni access token oluşturulur ve döndürülür
+   */
   @Post('refresh')
   @ApiOperation({ summary: 'Access token yenileme' })
   @ApiResponse({ status: 200, description: 'Token yenilendi' })
   @ApiResponse({ status: 401, description: 'Geçersiz refresh token' })
   async refresh(@Body() dto: RefreshTokenDto) {
+    // Service'e token yenileme isteği gönderilir
+    // dto: Refresh token bilgisi
     return await this.authService.refresh(dto);
   }
 
+  /**
+   * logout: Kullanıcı çıkışı endpoint'i
+   * 
+   * HTTP Metodu: POST
+   * URL: /api/auth/logout
+   * 
+   * Bu endpoint, kullanıcının çıkış yapmasını sağlar.
+   * 
+   * NOT: Bu uygulamada token'lar veritabanında saklanmaz (stateless JWT),
+   * bu yüzden logout işlemi sadece token'ın geçerliliğini kontrol eder.
+   * Gerçek bir logout için frontend'de token'ı silmek yeterlidir.
+   * 
+   * @Post('logout'): Bu fonksiyonun POST /api/auth/logout isteğine yanıt vereceğini belirtir
+   * 
+   * Parametreler:
+   * @Body() dto: Request body'den gelen refresh token (RefreshTokenDto formatında)
+   *   - refreshToken: Refresh token string'i (zorunlu)
+   * 
+   * Dönüş Değeri:
+   * - 200 OK: Çıkış başarılı
+   *   { message: "Çıkış başarılı" }
+   * 
+   * İş Akışı:
+   * 1. Refresh token doğrulanır (geçersizse bile hata fırlatılmaz)
+   * 2. Başarı mesajı döndürülür
+   */
   @Post('logout')
   @ApiOperation({ summary: 'Kullanıcı çıkışı' })
   @ApiResponse({ status: 200, description: 'Çıkış başarılı' })
   async logout(@Body() dto: RefreshTokenDto) {
+    // Service'e çıkış isteği gönderilir
+    // dto: Refresh token bilgisi
     return await this.authService.logout(dto);
   }
 
+  /**
+   * getProfile: Mevcut kullanıcı profili endpoint'i
+   * 
+   * HTTP Metodu: GET
+   * URL: /api/auth/me
+   * 
+   * Bu endpoint, giriş yapmış kullanıcının profil bilgilerini getirir.
+   * 
+   * @Get('me'): Bu fonksiyonun GET /api/auth/me isteğine yanıt vereceğini belirtir
+   * @UseGuards(JwtAuthGuard): Bu endpoint için JWT token kontrolü yapar
+   *   Token yoksa veya geçersizse 401 hatası döndürülür
+   * @ApiBearerAuth(): Swagger'da bu endpoint'in Bearer token gerektirdiğini belirtir
+   * 
+   * Parametreler:
+   * @CurrentUser() user: JWT token'dan alınan mevcut kullanıcı bilgisi
+   *   - user.id: Kullanıcının benzersiz ID'si
+   * 
+   * Dönüş Değeri:
+   * - 200 OK: Profil bilgileri alındı
+   *   {
+   *     user: { id, email, name, createdAt },
+   *     userContext: { preferences, firstName, initials }
+   *   }
+   * - 401 Unauthorized: Token yok veya geçersiz
+   * 
+   * İş Akışı:
+   * 1. JWT token'dan kullanıcı ID'si alınır (middleware veya guard tarafından)
+   * 2. Kullanıcı veritabanından bulunur
+   * 3. Kullanıcı bilgileri ve context (bağlam) bilgileri döndürülür
+   */
   @Get('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
@@ -59,6 +254,8 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Profil bilgileri alındı' })
   @ApiResponse({ status: 401, description: 'Yetkisiz erişim' })
   async getProfile(@CurrentUser() user: UserPayload) {
+    // Service'e profil bilgisi isteği gönderilir
+    // user.id: JWT token'dan alınan kullanıcı ID'si
     return await this.authService.getProfile(user.id);
   }
 }

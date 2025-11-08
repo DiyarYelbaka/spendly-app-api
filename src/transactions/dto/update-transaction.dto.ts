@@ -1,4 +1,7 @@
+// Swagger: API dokümantasyonu için kullanılan kütüphane
 import { ApiProperty } from '@nestjs/swagger';
+
+// class-validator: Gelen verilerin doğruluğunu kontrol etmek için kullanılan kütüphane
 import {
   IsNumber,
   IsString,
@@ -10,6 +13,23 @@ import {
   MaxLength,
 } from 'class-validator';
 
+/**
+ * UpdateTransactionDto Sınıfı
+ * 
+ * Bu sınıf, mevcut bir işlemi (transaction) güncellerken gönderilmesi gereken verileri tanımlar.
+ * 
+ * ÖNEMLİ FARK: CreateTransactionDto'dan farklı olarak, bu sınıftaki TÜM alanlar opsiyoneldir.
+ * Kullanıcı sadece değiştirmek istediği alanları gönderir, diğerleri aynı kalır.
+ * 
+ * Örnek kullanım:
+ * PUT /api/transactions/123
+ * {
+ *   "amount": 1600.00,
+ *   "description": "Güncellenmiş açıklama"
+ * }
+ * 
+ * Bu örnekte sadece amount ve description güncellenir, diğer alanlar (category_id, date, notes) değişmez.
+ */
 export class UpdateTransactionDto {
   @ApiProperty({
     example: 1600.00,

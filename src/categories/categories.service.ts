@@ -1,3 +1,6 @@
+// NestJS: Backend framework'ü
+// Injectable: Bu sınıfın NestJS'in dependency injection sistemine dahil olduğunu belirtir
+// Exception sınıfları: Farklı hata durumlarını temsil eder
 import {
   Injectable,
   NotFoundException,
@@ -6,21 +9,109 @@ import {
   ConflictException,
   Logger,
 } from '@nestjs/common';
+
+// PrismaService: Veritabanı işlemlerini yapan servis
+// Prisma, veritabanı ile iletişim kurmak için kullanılan bir ORM (Object-Relational Mapping) aracıdır
 import { PrismaService } from '../core';
+
+// DTO'lar: Gelen verilerin yapısını tanımlayan sınıflar
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { CategoryQueryDto } from './dto/category-query.dto';
+
+// Yardımcı fonksiyonlar: Ortak işlemler için kullanılan utility fonksiyonları
+// ErrorHandler: Hataları yönetmek için
+// parsePagination: Sayfalama parametrelerini işlemek için
+// createPaginationResult: Sayfalama sonuçlarını oluşturmak için
+// formatCategory: Kategori verilerini formatlamak için
 import { ErrorHandler, parsePagination, createPaginationResult, formatCategory } from '../core';
 
+/**
+ * CategoriesService Sınıfı
+ * 
+ * Bu sınıf, kategori ile ilgili tüm iş mantığını (business logic) içerir.
+ * Service'in görevi:
+ * 1. Veritabanı işlemlerini yapmak (CRUD: Create, Read, Update, Delete)
+ * 2. İş kurallarını uygulamak (örneğin: aynı isimde kategori olamaz)
+ * 3. Veri doğrulamaları yapmak
+ * 4. Hata yönetimi yapmak
+ * 
+ * @Injectable(): Bu sınıfın NestJS'in dependency injection sistemine dahil olduğunu belirtir
+ *   Bu sayede bu sınıf başka sınıflara otomatik olarak enjekte edilebilir
+ */
 @Injectable()
 export class CategoriesService {
+  /**
+   * logger: Loglama (kayıt tutma) için kullanılan nesne
+   * 
+   * Logger, uygulamanın çalışması sırasında oluşan olayları kaydetmek için kullanılır.
+   * Örneğin: Hatalar, bilgilendirmeler, uyarılar
+   * 
+   * private readonly: Bu değişken sadece bu sınıf içinde kullanılabilir ve değiştirilemez
+   * CategoriesService.name: Logger'ın hangi sınıftan geldiğini belirtir
+   */
   private readonly logger = new Logger(CategoriesService.name);
 
+  /**
+   * Constructor (Yapıcı Fonksiyon)
+   * 
+   * Bu fonksiyon, service oluşturulduğunda çalışır.
+   * PrismaService'i buraya enjekte eder (dependency injection).
+   * 
+   * private prisma: Veritabanı işlemlerini yapmak için kullanılan Prisma servisi
+   *   Bu servis sayesinde veritabanına sorgu gönderebiliriz
+   */
   constructor(private prisma: PrismaService) {}
 
+  /**
+   * create: Yeni kategori oluşturma fonksiyonu
+   * 
+   * Bu fonksiyon, kullanıcının yeni bir kategori oluşturmasını sağlar.
+   * 
+   * @param dto: CreateCategoryDto - Kullanıcıdan gelen kategori bilgileri
+   *   - name: Kategori adı (zorunlu)
+   *   - type: Kategori tipi - income veya expense (zorunlu)
+   *   - icon: Kategori ikonu (opsiyonel)
+   *   - color: Kategori rengi (opsiyonel)
+   *   - description: Kategori açıklaması (opsiyonel)
+   *   - sort_order: Sıralama sırası (opsiyonel)
+   * 
+   * @param userId: string - Kategoriyi oluşturan kullanıcının ID'si
+   *   Bu ID, kategorinin hangi kullanıcıya ait olduğunu belirler
+   * 
+   * @returns Promise<Category> - Oluşturulan kategori bilgisi
+   * 
+   * İş Akışı:
+   * 1. Aynı isimde ve tipte bir kategori var mı kontrol edilir
+   * 2. Varsa ConflictException (409) hatası fırlatılır
+   * 3. Yoksa yeni kategori veritabanına kaydedilir
+   * 4. Oluşturulan kategori formatlanarak döndürülür
+   * 
+   * Hata Durumları:
+   * - ConflictException (409): Aynı isimde kategori zaten mevcut
+   * - Diğer hatalar: ErrorHandler tarafından yönetilir
+   */
   async create(dto: CreateCategoryDto, userId: string) {
+    // try-catch: Hata yakalama bloğu
+    // Eğer kod içinde bir hata oluşursa, catch bloğuna düşer
     try {
-      // Duplicate name kontrolü (aynı user, aynı type, aynı name)
+      /**
+       * ADIM 1: Duplicate (Tekrar Eden) İsim Kontrolü
+       * 
+       * Aynı kullanıcının, aynı tipte ve aynı isimde bir kategorisi var mı kontrol edilir.
+       * Bu kontrol önemlidir çünkü:
+       * - Kullanıcı aynı isimde iki kategori oluşturmasın
+       * - Kategorileri ayırt etmek zorlaşmasın
+       * 
+       * findFirst: Veritabanında ilk eşleşen kaydı bulur
+       * where: Arama kriterleri
+       *   - userId: Sadece bu kullanıcının kategorilerine bak
+       *   - name: Kategori adı eşleşmeli
+       *   - type: Kategori tipi eşleşmeli (income veya expense)
+       *   - isActive: true - Sadece aktif kategorilere bak (silinmiş kategorileri sayma)
+       * 
+       * await: Veritabanı sorgusunun tamamlanmasını bekler (asynchronous işlem)
+       */
       const existing = await this.prisma.category.findFirst({
         where: {
           userId,
@@ -30,6 +121,15 @@ export class CategoriesService {
         },
       });
 
+      /**
+       * ADIM 2: Eğer Aynı İsimde Kategori Varsa Hata Fırlat
+       * 
+       * existing değişkeni null değilse, yani aynı isimde bir kategori bulunduysa,
+       * ConflictException (409) hatası fırlatılır.
+       * 
+       * ConflictException: HTTP 409 durum kodu - Çakışma hatası
+       * Bu hata, kullanıcıya "Bu isimde bir kategori zaten mevcut" mesajını gösterir
+       */
       if (existing) {
         throw new ConflictException({
           message: 'Bu isimde bir kategori zaten mevcut',
@@ -38,8 +138,36 @@ export class CategoriesService {
         });
       }
 
-      // Tek bir kayıt oluşturulduğu için transaction'a gerek yok
-      // Prisma zaten her query'yi kendi transaction'ında çalıştırır
+      /**
+       * ADIM 3: Yeni Kategoriyi Veritabanına Kaydet
+       * 
+       * Aynı isimde kategori yoksa, yeni kategori oluşturulur.
+       * 
+       * create: Veritabanına yeni bir kayıt ekler
+       * data: Kaydedilecek veriler
+       *   - name: Kategori adı (dto'dan gelir)
+       *   - type: Kategori tipi (dto'dan gelir)
+       *   - icon: Kategori ikonu (dto'dan gelir, opsiyonel)
+       *   - color: Kategori rengi (dto'dan gelir, opsiyonel)
+       *   - description: Kategori açıklaması (dto'dan gelir, opsiyonel)
+       *   - sortOrder: Sıralama sırası (dto'dan gelir, yoksa 0 kullanılır)
+       *   - userId: Kategoriyi oluşturan kullanıcının ID'si
+       * 
+       * select: Döndürülecek alanları belirtir
+       *   Sadece belirtilen alanlar döndürülür (güvenlik ve performans için)
+       *   - id: Kategorinin benzersiz ID'si
+       *   - name: Kategori adı
+       *   - type: Kategori tipi
+       *   - icon: Kategori ikonu
+       *   - color: Kategori rengi
+       *   - description: Kategori açıklaması
+       *   - sortOrder: Sıralama sırası
+       *   - isActive: Kategori aktif mi? (her zaman true olur yeni oluşturulan kategorilerde)
+       *   - isDefault: Varsayılan kategori mi? (kullanıcı oluşturduğu için false)
+       *   - createdAt: Oluşturulma tarihi
+       * 
+       * NOT: password gibi hassas alanlar select'e dahil edilmez (güvenlik)
+       */
       const category = await this.prisma.category.create({
         data: {
           name: dto.name,
@@ -47,6 +175,7 @@ export class CategoriesService {
           icon: dto.icon,
           color: dto.color,
           description: dto.description,
+          // || 0: Eğer sort_order gönderilmemişse, varsayılan olarak 0 kullan
           sortOrder: dto.sort_order || 0,
           userId,
         },
@@ -64,8 +193,30 @@ export class CategoriesService {
         },
       });
 
+      /**
+       * ADIM 4: Kategoriyi Formatla ve Döndür
+       * 
+       * formatCategory: Kategori verilerini frontend'in beklediği formata çevirir
+       * Örneğin: sortOrder → sort_order (snake_case'e çevirir)
+       * 
+       * return: Oluşturulan kategori bilgisi döndürülür
+       */
       return formatCategory(category);
     } catch (error) {
+      /**
+       * Hata Yakalama Bloğu
+       * 
+       * Eğer yukarıdaki kod içinde herhangi bir hata oluşursa (örneğin: veritabanı hatası),
+       * bu blok çalışır.
+       * 
+       * ErrorHandler.handleError: Hataları yönetmek için kullanılan yardımcı fonksiyon
+       *   - error: Oluşan hata nesnesi
+       *   - this.logger: Hataları loglamak için logger
+       *   - 'create category': Hatanın hangi işlem sırasında oluştuğunu belirtir
+       *   - 'Kategori oluşturulurken bir hata oluştu': Kullanıcıya gösterilecek mesaj
+       * 
+       * Bu fonksiyon, hatayı loglar ve uygun HTTP hatası olarak fırlatır
+       */
       ErrorHandler.handleError(
         error,
         this.logger,

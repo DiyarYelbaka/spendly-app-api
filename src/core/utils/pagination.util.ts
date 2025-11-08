@@ -1,38 +1,197 @@
 /**
- * Pagination Utility
- * Helper functions for pagination calculations
+ * Pagination Utility (Sayfalama Yardımcı Fonksiyonları)
+ * 
+ * Bu dosya, sayfalama (pagination) hesaplamaları için yardımcı fonksiyonlar içerir.
+ * 
+ * Utility (Yardımcı) Nedir?
+ * Utility, ortak işlemler için kullanılan yardımcı fonksiyonlardır.
+ * Bu fonksiyonlar, farklı yerlerde tekrar kullanılabilir.
  */
 
+/**
+ * PaginationParams Interface (Arayüz)
+ * 
+ * Bu arayüz, sayfalama parametrelerini tanımlar.
+ * 
+ * Interface Nedir?
+ * Interface, bir nesnenin hangi alanlara sahip olması gerektiğini belirten bir yapıdır.
+ */
 export interface PaginationParams {
+  /**
+   * page: Sayfa numarası
+   * 
+   * Hangi sayfanın gösterileceğini belirtir.
+   * 
+   * number: Sayı tipinde (örneğin: 1, 2, 5)
+   */
   page: number;
+
+  /**
+   * limit: Sayfa başına kayıt sayısı
+   * 
+   * Bir sayfada kaç kayıt gösterileceğini belirtir.
+   * 
+   * number: Sayı tipinde (örneğin: 20, 50, 100)
+   */
   limit: number;
+
+  /**
+   * skip: Atlanacak kayıt sayısı
+   * 
+   * Veritabanı sorgusunda kaç kayıt atlanacağını belirtir.
+   * 
+   * number: Sayı tipinde
+   * 
+   * Hesaplama: skip = (page - 1) * limit
+   * Örnek: page=2, limit=20 → skip=20 (ilk 20 kayıt atlanır)
+   */
   skip: number;
 }
 
+/**
+ * PaginationResult Interface (Arayüz)
+ * 
+ * Bu arayüz, sayfalama sonuç bilgilerini tanımlar.
+ * Frontend'e döndürülecek sayfalama bilgilerini içerir.
+ */
 export interface PaginationResult {
+  /**
+   * total: Toplam kayıt sayısı
+   * 
+   * Tüm kayıtların toplam sayısı (sayfalama olmadan).
+   * 
+   * number: Sayı tipinde (örneğin: 100, 500, 1000)
+   */
   total: number;
+
+  /**
+   * current_page: Mevcut sayfa numarası
+   * 
+   * Kullanıcının hangi sayfada olduğunu belirtir.
+   * 
+   * number: Sayı tipinde (örneğin: 1, 2, 5)
+   */
   current_page: number;
+
+  /**
+   * per_page: Sayfa başına kayıt sayısı
+   * 
+   * Bir sayfada kaç kayıt gösterildiğini belirtir.
+   * 
+   * number: Sayı tipinde (örneğin: 20, 50, 100)
+   */
   per_page: number;
 }
 
 /**
- * Parse pagination parameters from query
- * @param page - Page number (default: 1)
- * @param limit - Items per page (default: 20, max: 100)
- * @returns Pagination parameters
+ * parsePagination: Sayfalama parametrelerini işleyen fonksiyon
+ * 
+ * Bu fonksiyon, URL'den gelen sayfalama parametrelerini işler ve standart değerlere çevirir.
+ * 
+ * @param page: number | string - Sayfa numarası (opsiyonel)
+ *   URL'den string olarak gelebilir (örneğin: "1", "2")
+ *   Veya number olarak gelebilir (örneğin: 1, 2)
+ * 
+ * @param limit: number | string - Sayfa başına kayıt sayısı (opsiyonel)
+ *   URL'den string olarak gelebilir (örneğin: "20", "50")
+ *   Veya number olarak gelebilir (örneğin: 20, 50)
+ * 
+ * @returns PaginationParams - İşlenmiş sayfalama parametreleri
+ *   - page: Sayfa numarası (min: 1)
+ *   - limit: Sayfa başına kayıt sayısı (min: 1, max: 100)
+ *   - skip: Atlanacak kayıt sayısı (hesaplanır)
+ * 
+ * İş Akışı:
+ * 1. page parametresi işlenir (string → number, min: 1)
+ * 2. limit parametresi işlenir (string → number, min: 1, max: 100)
+ * 3. skip hesaplanır (skip = (page - 1) * limit)
+ * 4. Sonuçlar döndürülür
+ * 
+ * Örnek Kullanım:
+ * parsePagination("2", "20")
+ * → { page: 2, limit: 20, skip: 20 }
+ * 
+ * parsePagination(undefined, undefined)
+ * → { page: 1, limit: 20, skip: 0 } (varsayılan değerler)
  */
 export function parsePagination(
   page?: number | string,
   limit?: number | string,
 ): PaginationParams {
+  /**
+   * ADIM 1: Sayfa Numarasını İşle
+   * 
+   * page ? ... : 1: Eğer page gönderilmişse işle, yoksa 1 kullan (varsayılan)
+   * 
+   * parseInt(String(page), 10): String'i number'a çevirir
+   *   - String(page): page'i string'e çevirir (zaten string ise değişmez)
+   *   - 10: 10 tabanında (decimal) sayıya çevirir
+   *   - || 1: Eğer parseInt başarısız olursa (NaN), 1 kullan
+   * 
+   * Math.max(1, ...): En az 1 olmalıdır
+   *   - Negatif sayılar veya 0 kabul edilmez
+   *   - Örnek: -5 → 1, 0 → 1, 1 → 1, 5 → 5
+   * 
+   * Örnek:
+   *   page = "2" → parseInt("2", 10) = 2 → Math.max(1, 2) = 2
+   *   page = "-5" → parseInt("-5", 10) = -5 → Math.max(1, -5) = 1
+   *   page = undefined → 1 (varsayılan)
+   */
   const parsedPage = page
     ? Math.max(1, parseInt(String(page), 10) || 1)
     : 1;
+  
+  /**
+   * ADIM 2: Sayfa Başına Kayıt Sayısını İşle
+   * 
+   * limit ? ... : 20: Eğer limit gönderilmişse işle, yoksa 20 kullan (varsayılan)
+   * 
+   * parseInt(String(limit), 10): String'i number'a çevirir
+   *   || 20: Eğer parseInt başarısız olursa (NaN), 20 kullan
+   * 
+   * Math.max(1, ...): En az 1 olmalıdır
+   *   - Negatif sayılar veya 0 kabul edilmez
+   * 
+   * Math.min(100, ...): En fazla 100 olabilir
+   *   - Çok büyük sayılar performans sorunlarına yol açabilir
+   *   - Örnek: 200 → 100, 50 → 50, 1 → 1
+   * 
+   * Örnek:
+   *   limit = "20" → parseInt("20", 10) = 20 → Math.max(1, 20) = 20 → Math.min(100, 20) = 20
+   *   limit = "200" → parseInt("200", 10) = 200 → Math.max(1, 200) = 200 → Math.min(100, 200) = 100
+   *   limit = undefined → 20 (varsayılan)
+   */
   const parsedLimit = limit
     ? Math.min(100, Math.max(1, parseInt(String(limit), 10) || 20))
     : 20;
+  
+  /**
+   * ADIM 3: Atlanacak Kayıt Sayısını Hesapla
+   * 
+   * skip: Veritabanı sorgusunda kaç kayıt atlanacağını belirtir.
+   * 
+   * Formül: skip = (page - 1) * limit
+   * 
+   * Örnek:
+   *   page=1, limit=20 → skip = (1-1) * 20 = 0 (hiç kayıt atlanmaz)
+   *   page=2, limit=20 → skip = (2-1) * 20 = 20 (ilk 20 kayıt atlanır)
+   *   page=3, limit=20 → skip = (3-1) * 20 = 40 (ilk 40 kayıt atlanır)
+   * 
+   * Neden (page - 1)?
+   * - Sayfa 1'de hiç kayıt atlanmaz (skip=0)
+   * - Sayfa 2'de ilk sayfadaki kayıtlar atlanır (skip=limit)
+   * - Sayfa 3'te ilk iki sayfadaki kayıtlar atlanır (skip=2*limit)
+   */
   const skip = (parsedPage - 1) * parsedLimit;
 
+  /**
+   * ADIM 4: Sonuçları Döndür
+   * 
+   * return: İşlenmiş sayfalama parametreleri
+   *   - page: Sayfa numarası
+   *   - limit: Sayfa başına kayıt sayısı
+   *   - skip: Atlanacak kayıt sayısı
+   */
   return {
     page: parsedPage,
     limit: parsedLimit,
@@ -41,17 +200,50 @@ export function parsePagination(
 }
 
 /**
- * Create pagination result object
- * @param total - Total number of items
- * @param page - Current page number
- * @param limit - Items per page
- * @returns Pagination result
+ * createPaginationResult: Sayfalama sonuç nesnesi oluşturan fonksiyon
+ * 
+ * Bu fonksiyon, frontend'e döndürülecek sayfalama bilgilerini oluşturur.
+ * 
+ * @param total: number - Toplam kayıt sayısı
+ *   Tüm kayıtların toplam sayısı (sayfalama olmadan)
+ * 
+ * @param page: number - Mevcut sayfa numarası
+ *   Kullanıcının hangi sayfada olduğu
+ * 
+ * @param limit: number - Sayfa başına kayıt sayısı
+ *   Bir sayfada kaç kayıt gösterildiği
+ * 
+ * @returns PaginationResult - Sayfalama sonuç bilgileri
+ *   - total: Toplam kayıt sayısı
+ *   - current_page: Mevcut sayfa numarası
+ *   - per_page: Sayfa başına kayıt sayısı
+ * 
+ * İş Akışı:
+ * 1. Sayfalama sonuç nesnesi oluşturulur
+ * 2. Alanlar doldurulur (total, current_page, per_page)
+ * 3. Sonuç döndürülür
+ * 
+ * Örnek Kullanım:
+ * createPaginationResult(100, 2, 20)
+ * → {
+ *     total: 100,
+ *     current_page: 2,
+ *     per_page: 20
+ *   }
  */
 export function createPaginationResult(
   total: number,
   page: number,
   limit: number,
 ): PaginationResult {
+  /**
+   * Sayfalama Sonuç Nesnesi Oluştur
+   * 
+   * return: Sayfalama bilgilerini içeren nesne
+   *   - total: Toplam kayıt sayısı
+   *   - current_page: Mevcut sayfa numarası (page parametresinden gelir)
+   *   - per_page: Sayfa başına kayıt sayısı (limit parametresinden gelir)
+   */
   return {
     total,
     current_page: page,
