@@ -3,6 +3,7 @@ import {
   UnauthorizedException,
   ConflictException,
   BadRequestException,
+  UnprocessableEntityException,
   Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -123,10 +124,10 @@ export class AuthService {
       });
 
       if (!user) {
-        throw new UnauthorizedException({
+        throw new UnprocessableEntityException({
           message: 'Email veya şifre hatalı',
           messageKey: 'INVALID_CREDENTIALS',
-          error: 'UNAUTHORIZED',
+          error: 'UNPROCESSABLE_ENTITY',
         });
       }
 
@@ -134,10 +135,10 @@ export class AuthService {
       const isPasswordValid = await bcrypt.compare(dto.password, user.password);
 
       if (!isPasswordValid) {
-        throw new UnauthorizedException({
+        throw new UnprocessableEntityException({
           message: 'Email veya şifre hatalı',
           messageKey: 'INVALID_CREDENTIALS',
-          error: 'UNAUTHORIZED',
+          error: 'UNPROCESSABLE_ENTITY',
         });
       }
 

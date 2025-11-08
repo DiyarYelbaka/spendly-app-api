@@ -125,18 +125,18 @@ export class AuthController {
    *     user: { id, email, name, createdAt },
    *     tokens: { accessToken, refreshToken, expiresAt }
    *   }
-   * - 401 Unauthorized: Email veya şifre hatalı
+   * - 422 Unprocessable Entity: Email veya şifre hatalı
    * 
    * İş Akışı:
    * 1. Email ile kullanıcı bulunur
    * 2. Şifre kontrol edilir (hash'lenmiş şifre ile karşılaştırılır)
    * 3. Şifre doğruysa JWT token'lar oluşturulur ve döndürülür
-   * 4. Şifre yanlışsa 401 hatası döndürülür
+   * 4. Şifre yanlışsa 422 hatası döndürülür
    */
   @Post('login')
   @ApiOperation({ summary: 'Kullanıcı girişi' })
   @ApiResponse({ status: 200, description: 'Giriş başarılı' })
-  @ApiResponse({ status: 401, description: 'Email veya şifre hatalı' })
+  @ApiResponse({ status: 422, description: 'Email veya şifre hatalı' })
   async login(@Body() dto: LoginDto) {
     // Service'e giriş isteği gönderilir
     // dto: Kullanıcıdan gelen giriş bilgileri
