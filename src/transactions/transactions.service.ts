@@ -411,7 +411,7 @@ export class TransactionsService {
        *   - where: Filtreleme kriterleri
        *   - skip: Atlanacak kayıt sayısı (sayfalama için)
        *   - take: Alınacak kayıt sayısı (sayfalama için)
-       *   - orderBy: Sıralama kriteri (date: 'desc' - Tarihe göre azalan sırada, en yeni önce)
+       *   - orderBy: Sıralama kriteri (createdAt: 'desc' - Oluşturulma tarihine göre azalan sırada, en yeni oluşturulanlar en üstte)
        *   - include: İlişkili verileri de getir (kategori bilgileri)
        * 
        * count: Toplam kayıt sayısını hesaplar
@@ -426,7 +426,7 @@ export class TransactionsService {
           skip,
           take: limit,
           orderBy: {
-            date: 'desc',
+            createdAt: 'desc', // En yeni oluşturulanlar en üstte
           },
           include: {
             category: {

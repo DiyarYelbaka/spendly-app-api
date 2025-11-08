@@ -230,35 +230,56 @@ export class HttpExceptionFilter implements ExceptionFilter {
         fields = {};
         
         /**
+         * Request metodunu ve URL'i kontrol et
+         * Query parametreleri genellikle GET isteklerinde olur
+         */
+        const isQueryParam = request.method === 'GET' || request.url.includes('?');
+        
+        /**
          * Her Validation Hatasını İşle
          * 
          * forEach: Dizideki her eleman için fonksiyon çalıştırır
          * 
-         * error.property: Hangi alanda hata var? (örneğin: "email", "password")
-         * error.constraints: O alandaki hata mesajları (örneğin: { isEmail: "..." })
-         * error.value: Gönderilen değer (örneğin: "invalid-email")
+         * error.property: Hangi alanda hata var? (örneğin: "email", "password", "results")
+         * error.constraints: O alandaki hata mesajları (örneğin: { max: "...", isEmail: "..." })
+         * error.value: Gönderilen değer (örneğin: "invalid-email", 1000)
+         * error.target: Hangi DTO'da hata var? (query DTO'su ise query parametresi)
          */
         validationErrors.forEach((error: any) => {
           if (error.property) {
             /**
+             * Location Belirleme
+             * 
+             * Query parametreleri için location: 'query'
+             * Body parametreleri için location: 'body'
+             * 
+             * error.target kontrolü: Eğer target PaginationQueryDto gibi bir query DTO'su ise,
+             * veya request method GET ise, query parametresi olabilir.
+             */
+            const location = isQueryParam ? 'query' : 'body';
+            
+            /**
              * Alan Bazlı Hataları Oluştur
              * 
              * Object.values(error.constraints): Tüm hata mesajlarını alır
-             *   Örnek: { isEmail: "Email geçerli olmalıdır", isNotEmpty: "Email zorunludur" }
-             *   → ["Email geçerli olmalıdır", "Email zorunludur"]
+             *   Örnek: { max: "results must not be greater than 100", isInt: "results must be an integer number" }
+             *   → ["results must not be greater than 100", "results must be an integer number"]
              * 
              * map(): Her mesajı bir nesneye çevirir
              *   - message: Hata mesajı
              *   - value: Gönderilen değer
              *   - location: Hatanın nerede olduğu (body, query, param)
              */
-            fields[error.property] = Object.values(error.constraints || {}).map(
-              (constraint: string) => ({
-                message: constraint,
-                value: error.value,
-                location: 'body',
-              }),
-            );
+            const constraints = error.constraints || {};
+            if (Object.keys(constraints).length > 0) {
+              fields[error.property] = Object.values(constraints).map(
+                (constraint: string) => ({
+                  message: constraint,
+                  value: error.value,
+                  location,
+                }),
+              );
+            }
           }
         });
         
