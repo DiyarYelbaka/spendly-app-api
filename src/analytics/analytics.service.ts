@@ -1,92 +1,17 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
+import { ErrorHandler } from '../common/utils/error-handler.util';
 
 @Injectable()
 export class AnalyticsService {
+  private readonly logger = new Logger(AnalyticsService.name);
+
   constructor(private prisma: PrismaService) {}
 
   async getDashboard(userId: string) {
-    // Tüm zamanlar toplam gelir/gider
-    const [totalIncomeResult, totalExpenseResult] = await Promise.all([
-      this.prisma.transaction.aggregate({
-        where: {
-          userId,
-          type: 'income',
-        },
-        _sum: {
-          amount: true,
-        },
-      }),
-      this.prisma.transaction.aggregate({
-        where: {
-          userId,
-          type: 'expense',
-        },
-        _sum: {
-          amount: true,
-        },
-      }),
-    ]);
-
-    const totalIncome = totalIncomeResult._sum.amount?.toNumber() || 0;
-    const totalExpense = totalExpenseResult._sum.amount?.toNumber() || 0;
-    const netBalance = totalIncome - totalExpense;
-
-    // Aylık trendler (son 6 ay)
-    const monthlyTrends = await this.getMonthlyTrends(userId, 6);
-
-    // Kategori dağılımı
-    const categoryBreakdown = await this.getCategoryBreakdown(userId);
-
-    return {
-      summary: {
-        total_income: totalIncome,
-        total_expense: totalExpense,
-        net_balance: netBalance,
-        // Frontend uyumu için camelCase de ekle
-        netIncome: netBalance,
-        totalIncome: totalIncome,
-        totalExpense: totalExpense,
-      },
-      monthly_trends: monthlyTrends,
-      category_breakdown: categoryBreakdown,
-    };
-  }
-
-  async getSummary(userId: string) {
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-
-    // Bu ayki gelir/gider
-    const [monthlyIncomeResult, monthlyExpenseResult, totalIncomeResult, totalExpenseResult] =
-      await Promise.all([
-        this.prisma.transaction.aggregate({
-          where: {
-            userId,
-            type: 'income',
-            date: {
-              gte: startOfMonth,
-              lte: endOfMonth,
-            },
-          },
-          _sum: {
-            amount: true,
-          },
-        }),
-        this.prisma.transaction.aggregate({
-          where: {
-            userId,
-            type: 'expense',
-            date: {
-              gte: startOfMonth,
-              lte: endOfMonth,
-            },
-          },
-          _sum: {
-            amount: true,
-          },
-        }),
+    try {
+      // Tüm zamanlar toplam gelir/gider
+      const [totalIncomeResult, totalExpenseResult] = await Promise.all([
         this.prisma.transaction.aggregate({
           where: {
             userId,
@@ -107,29 +32,125 @@ export class AnalyticsService {
         }),
       ]);
 
-    const monthlyIncome = monthlyIncomeResult._sum.amount?.toNumber() || 0;
-    const monthlyExpense = monthlyExpenseResult._sum.amount?.toNumber() || 0;
-    const totalIncome = totalIncomeResult._sum.amount?.toNumber() || 0;
-    const totalExpense = totalExpenseResult._sum.amount?.toNumber() || 0;
-    const currentBalance = totalIncome - totalExpense;
+      const totalIncome = totalIncomeResult._sum.amount?.toNumber() || 0;
+      const totalExpense = totalExpenseResult._sum.amount?.toNumber() || 0;
+      const netBalance = totalIncome - totalExpense;
 
-    // Tasarruf oranı hesapla
-    let savingsRate = 0;
-    if (monthlyIncome > 0) {
-      savingsRate = ((monthlyIncome - monthlyExpense) / monthlyIncome) * 100;
-      savingsRate = Math.round(savingsRate * 100) / 100; // 2 decimal
+      // Aylık trendler (son 6 ay)
+      const monthlyTrends = await this.getMonthlyTrends(userId, 6);
+
+      // Kategori dağılımı
+      const categoryBreakdown = await this.getCategoryBreakdown(userId);
+
+      return {
+        summary: {
+          total_income: totalIncome,
+          total_expense: totalExpense,
+          net_balance: netBalance,
+          // Frontend uyumu için camelCase de ekle
+          netIncome: netBalance,
+          totalIncome: totalIncome,
+          totalExpense: totalExpense,
+        },
+        monthly_trends: monthlyTrends,
+        category_breakdown: categoryBreakdown,
+      };
+    } catch (error) {
+      ErrorHandler.handleError(
+        error,
+        this.logger,
+        'getDashboard',
+        'Dashboard verileri getirilirken bir hata oluştu',
+      );
     }
+  }
 
-    // En çok kullanılan kategoriler (top 5)
-    const topCategories = await this.getTopCategories(userId, 5);
+  async getSummary(userId: string) {
+    try {
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
 
-    return {
-      current_balance: currentBalance,
-      monthly_income: monthlyIncome,
-      monthly_expense: monthlyExpense,
-      savings_rate: savingsRate,
+      // Bu ayki gelir/gider
+      const [monthlyIncomeResult, monthlyExpenseResult, totalIncomeResult, totalExpenseResult] =
+        await Promise.all([
+          this.prisma.transaction.aggregate({
+            where: {
+              userId,
+              type: 'income',
+              date: {
+                gte: startOfMonth,
+                lte: endOfMonth,
+              },
+            },
+            _sum: {
+              amount: true,
+            },
+          }),
+          this.prisma.transaction.aggregate({
+            where: {
+              userId,
+              type: 'expense',
+              date: {
+                gte: startOfMonth,
+                lte: endOfMonth,
+              },
+            },
+            _sum: {
+              amount: true,
+            },
+          }),
+          this.prisma.transaction.aggregate({
+            where: {
+              userId,
+              type: 'income',
+            },
+            _sum: {
+              amount: true,
+            },
+          }),
+          this.prisma.transaction.aggregate({
+            where: {
+              userId,
+              type: 'expense',
+            },
+            _sum: {
+              amount: true,
+            },
+          }),
+        ]);
+
+      const monthlyIncome = monthlyIncomeResult._sum.amount?.toNumber() || 0;
+      const monthlyExpense = monthlyExpenseResult._sum.amount?.toNumber() || 0;
+      const totalIncome = totalIncomeResult._sum.amount?.toNumber() || 0;
+      const totalExpense = totalExpenseResult._sum.amount?.toNumber() || 0;
+      const currentBalance = totalIncome - totalExpense;
+
+      // Tasarruf oranı hesapla
+      let savingsRate = 0;
+      if (monthlyIncome > 0) {
+        savingsRate = ((monthlyIncome - monthlyExpense) / monthlyIncome) * 100;
+        savingsRate = Math.round(savingsRate * 100) / 100; // 2 decimal
+      }
+
+      // En çok kullanılan kategoriler (top 5)
+      const topCategories = await this.getTopCategories(userId, 5);
+
+      return {
+        current_balance: currentBalance,
+        monthly_income: monthlyIncome,
+        monthly_expense: monthlyExpense,
+        savings_rate: savingsRate,
       top_categories: topCategories,
     };
+    } catch (error) {
+      ErrorHandler.handleError(
+        error,
+        this.logger,
+        'getSummary',
+        'Özet verileri getirilirken bir hata oluştu',
+      );
+    }
   }
 
   /**
