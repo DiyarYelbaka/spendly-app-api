@@ -24,7 +24,7 @@ import { CategoryQueryDto } from './dto/category-query.dto';
 // parsePagination: Sayfalama parametrelerini işlemek için
 // createPaginationResult: Sayfalama sonuçlarını oluşturmak için
 // formatCategory: Kategori verilerini formatlamak için
-import { ErrorHandler, parsePagination, createPaginationResult, formatCategory } from '../core';
+import { ErrorHandler, parsePagination, createPaginationResult, formatCategory, DEFAULT_CATEGORIES, CategoryType } from '../core';
 
 /**
  * CategoriesService Sınıfı
@@ -538,25 +538,11 @@ export class CategoriesService {
    */
   async createDefaultCategories(userId: string) {
     try {
-      const defaultCategories = [
-        // Income kategorileri
-        { name: 'Maaş', type: 'income', icon: '💰', color: '#00C853', sortOrder: 1 },
-        { name: 'Yatırım', type: 'income', icon: '📈', color: '#00E676', sortOrder: 2 },
-        { name: 'Diğer Gelirler', type: 'income', icon: '💵', color: '#69F0AE', sortOrder: 3 },
-        // Expense kategorileri
-        { name: 'Yemek', type: 'expense', icon: '🍔', color: '#FF5722', sortOrder: 1 },
-        { name: 'Ulaşım', type: 'expense', icon: '🚗', color: '#FF9800', sortOrder: 2 },
-        { name: 'Faturalar', type: 'expense', icon: '💡', color: '#FFC107', sortOrder: 3 },
-        { name: 'Eğlence', type: 'expense', icon: '🎬', color: '#9C27B0', sortOrder: 4 },
-        { name: 'Sağlık', type: 'expense', icon: '🏥', color: '#F44336', sortOrder: 5 },
-        { name: 'Diğer Giderler', type: 'expense', icon: '📦', color: '#607D8B', sortOrder: 6 },
-      ];
-
       const categories = await Promise.all(
-        defaultCategories.map((cat) =>
+        DEFAULT_CATEGORIES.map((cat) =>
           this.prisma.category.create({
             data: {
-              name: cat.name,
+              name: cat.nameKey, // nameKey i18next translation key'i olarak saklanır
               type: cat.type,
               icon: cat.icon,
               color: cat.color,

@@ -93,6 +93,7 @@ export * from './types/user.types';
  * Mesaj anahtarları ve diğer sabit değerler
  */
 export * from './constants/message-keys.constant';
+export * from './constants/category.constants';
 
 /**
  * Middleware (Ara Katmanlar)
