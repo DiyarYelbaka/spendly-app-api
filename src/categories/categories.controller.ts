@@ -38,6 +38,12 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 // UserPayload: Kullanıcı bilgilerinin tipi (id, email, vb.)
 import { CurrentUser, UserPayload } from '../core';
 
+// PaginatedResponseDto: Sayfalanmış yanıtlar için standart format
+import { PaginatedResponseDto } from '../core/dto/paginated-response.dto';
+
+// MessageKey: Mesaj anahtarları
+import { MessageKey } from '../core';
+
 /**
  * CategoriesController Sınıfı
  * 
@@ -176,7 +182,14 @@ export class CategoriesController {
     // Service'e kategori listeleme isteği gönderilir
     // user.id: Sadece bu kullanıcının kategorilerini getir
     // query: Filtreleme, arama ve sayfalama parametreleri
-    return await this.categoriesService.findAll(user.id, query);
+    const result = await this.categoriesService.findAll(user.id, query);
+    
+    // Standart formatlanmış yanıt döndür
+    return new PaginatedResponseDto(
+      result.items,
+      result.pagination,
+      MessageKey.CATEGORIES_RETRIEVED,
+    );
   }
 
   /**

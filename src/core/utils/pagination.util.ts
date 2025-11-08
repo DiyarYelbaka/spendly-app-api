@@ -8,6 +8,9 @@
  * Bu fonksiyonlar, farklı yerlerde tekrar kullanılabilir.
  */
 
+// PaginationDto import ediliyor
+import { PaginationDto } from '../dto/paginated-response.dto';
+
 /**
  * PaginationParams Interface (Arayüz)
  * 
@@ -53,34 +56,45 @@ export interface PaginationParams {
  * 
  * Bu arayüz, sayfalama sonuç bilgilerini tanımlar.
  * Frontend'e döndürülecek sayfalama bilgilerini içerir.
+ * React Native AdvancedList bileşeni için camelCase formatında.
  */
 export interface PaginationResult {
   /**
-   * total: Toplam kayıt sayısı
+   * totalResults: Toplam kayıt sayısı (camelCase)
    * 
    * Tüm kayıtların toplam sayısı (sayfalama olmadan).
    * 
    * number: Sayı tipinde (örneğin: 100, 500, 1000)
    */
-  total: number;
+  totalResults: number;
 
   /**
-   * current_page: Mevcut sayfa numarası
+   * totalPages: Toplam sayfa sayısı (camelCase)
+   * 
+   * Toplam kaç sayfa olduğunu belirtir.
+   * Hesaplama: Math.ceil(totalResults / perPage)
+   * 
+   * number: Sayı tipinde (örneğin: 5, 10, 25)
+   */
+  totalPages: number;
+
+  /**
+   * currentPage: Mevcut sayfa numarası (camelCase)
    * 
    * Kullanıcının hangi sayfada olduğunu belirtir.
    * 
    * number: Sayı tipinde (örneğin: 1, 2, 5)
    */
-  current_page: number;
+  currentPage: number;
 
   /**
-   * per_page: Sayfa başına kayıt sayısı
+   * perPage: Sayfa başına kayıt sayısı (camelCase)
    * 
    * Bir sayfada kaç kayıt gösterildiğini belirtir.
    * 
    * number: Sayı tipinde (örneğin: 20, 50, 100)
    */
-  per_page: number;
+  perPage: number;
 }
 
 /**
@@ -92,7 +106,7 @@ export interface PaginationResult {
  *   URL'den string olarak gelebilir (örneğin: "1", "2")
  *   Veya number olarak gelebilir (örneğin: 1, 2)
  * 
- * @param limit: number | string - Sayfa başına kayıt sayısı (opsiyonel)
+ * @param results: number | string - Sayfa başına kayıt sayısı (opsiyonel)
  *   URL'den string olarak gelebilir (örneğin: "20", "50")
  *   Veya number olarak gelebilir (örneğin: 20, 50)
  * 
@@ -103,7 +117,7 @@ export interface PaginationResult {
  * 
  * İş Akışı:
  * 1. page parametresi işlenir (string → number, min: 1)
- * 2. limit parametresi işlenir (string → number, min: 1, max: 100)
+ * 2. results parametresi işlenir (string → number, min: 1, max: 100)
  * 3. skip hesaplanır (skip = (page - 1) * limit)
  * 4. Sonuçlar döndürülür
  * 
@@ -116,7 +130,7 @@ export interface PaginationResult {
  */
 export function parsePagination(
   page?: number | string,
-  limit?: number | string,
+  results?: number | string,
 ): PaginationParams {
   /**
    * ADIM 1: Sayfa Numarasını İşle
@@ -144,9 +158,9 @@ export function parsePagination(
   /**
    * ADIM 2: Sayfa Başına Kayıt Sayısını İşle
    * 
-   * limit ? ... : 20: Eğer limit gönderilmişse işle, yoksa 20 kullan (varsayılan)
+   * results ? ... : 20: Eğer results gönderilmişse işle, yoksa 20 kullan (varsayılan)
    * 
-   * parseInt(String(limit), 10): String'i number'a çevirir
+   * parseInt(String(results), 10): String'i number'a çevirir
    *   || 20: Eğer parseInt başarısız olursa (NaN), 20 kullan
    * 
    * Math.max(1, ...): En az 1 olmalıdır
@@ -157,12 +171,12 @@ export function parsePagination(
    *   - Örnek: 200 → 100, 50 → 50, 1 → 1
    * 
    * Örnek:
-   *   limit = "20" → parseInt("20", 10) = 20 → Math.max(1, 20) = 20 → Math.min(100, 20) = 20
-   *   limit = "200" → parseInt("200", 10) = 200 → Math.max(1, 200) = 200 → Math.min(100, 200) = 100
-   *   limit = undefined → 20 (varsayılan)
+   *   results = "20" → parseInt("20", 10) = 20 → Math.max(1, 20) = 20 → Math.min(100, 20) = 20
+   *   results = "200" → parseInt("200", 10) = 200 → Math.max(1, 200) = 200 → Math.min(100, 200) = 100
+   *   results = undefined → 20 (varsayılan)
    */
-  const parsedLimit = limit
-    ? Math.min(100, Math.max(1, parseInt(String(limit), 10) || 20))
+  const parsedLimit = results
+    ? Math.min(100, Math.max(1, parseInt(String(results), 10) || 20))
     : 20;
   
   /**
@@ -203,6 +217,7 @@ export function parsePagination(
  * createPaginationResult: Sayfalama sonuç nesnesi oluşturan fonksiyon
  * 
  * Bu fonksiyon, frontend'e döndürülecek sayfalama bilgilerini oluşturur.
+ * React Native AdvancedList bileşeni için camelCase formatında.
  * 
  * @param total: number - Toplam kayıt sayısı
  *   Tüm kayıtların toplam sayısı (sayfalama olmadan)
@@ -213,41 +228,53 @@ export function parsePagination(
  * @param limit: number - Sayfa başına kayıt sayısı
  *   Bir sayfada kaç kayıt gösterildiği
  * 
- * @returns PaginationResult - Sayfalama sonuç bilgileri
- *   - total: Toplam kayıt sayısı
- *   - current_page: Mevcut sayfa numarası
- *   - per_page: Sayfa başına kayıt sayısı
+ * @returns PaginationResult - Sayfalama sonuç bilgileri (camelCase)
+ *   - totalResults: Toplam kayıt sayısı
+ *   - totalPages: Toplam sayfa sayısı
+ *   - currentPage: Mevcut sayfa numarası
+ *   - perPage: Sayfa başına kayıt sayısı
  * 
  * İş Akışı:
- * 1. Sayfalama sonuç nesnesi oluşturulur
- * 2. Alanlar doldurulur (total, current_page, per_page)
+ * 1. Toplam sayfa sayısı hesaplanır (Math.ceil(total / limit))
+ * 2. Sayfalama sonuç nesnesi oluşturulur (camelCase formatında)
  * 3. Sonuç döndürülür
  * 
  * Örnek Kullanım:
  * createPaginationResult(100, 2, 20)
  * → {
- *     total: 100,
- *     current_page: 2,
- *     per_page: 20
+ *     totalResults: 100,
+ *     totalPages: 5,
+ *     currentPage: 2,
+ *     perPage: 20
  *   }
  */
 export function createPaginationResult(
   total: number,
   page: number,
   limit: number,
-): PaginationResult {
+): PaginationDto {
   /**
-   * Sayfalama Sonuç Nesnesi Oluştur
+   * Toplam Sayfa Sayısını Hesapla
+   * 
+   * Math.ceil(total / limit): Toplam kayıt sayısını sayfa başına kayıt sayısına bölerek
+   * yukarı yuvarlar (örneğin: 100 kayıt, 20 kayıt/sayfa → 5 sayfa)
+   */
+  const totalPages = Math.ceil(total / limit);
+
+  /**
+   * Sayfalama Sonuç Nesnesi Oluştur (camelCase)
    * 
    * return: Sayfalama bilgilerini içeren nesne
-   *   - total: Toplam kayıt sayısı
-   *   - current_page: Mevcut sayfa numarası (page parametresinden gelir)
-   *   - per_page: Sayfa başına kayıt sayısı (limit parametresinden gelir)
+   *   - totalResults: Toplam kayıt sayısı
+   *   - totalPages: Toplam sayfa sayısı (hesaplanır)
+   *   - currentPage: Mevcut sayfa numarası (page parametresinden gelir)
+   *   - perPage: Sayfa başına kayıt sayısı (limit parametresinden gelir)
    */
   return {
-    total,
-    current_page: page,
-    per_page: limit,
+    totalResults: total,
+    totalPages,
+    currentPage: page,
+    perPage: limit,
   };
 }
 

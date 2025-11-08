@@ -20,7 +20,7 @@ import { IsOptional, IsInt, Min, Max } from 'class-validator';
  * Bu sınıf, diğer query DTO'larına (örneğin: CategoryQueryDto) extend edilerek kullanılır.
  * 
  * Örnek kullanım:
- * GET /api/categories?page=1&limit=20
+ * GET /api/categories?page=1&results=20
  * 
  * Bu sınıfın amacı:
  * 1. Sayfa numarası ve sayfa başına kayıt sayısını belirlemek
@@ -57,9 +57,10 @@ export class PaginationQueryDto {
   page?: number = 1;
 
   /**
-   * limit: Sayfa başına kayıt sayısı
+   * results: Sayfa başına kayıt sayısı
    * 
    * Bir sayfada kaç kayıt gösterileceğini belirtir.
+   * React Native AdvancedList bileşeni bu parametreyi kullanır.
    * 
    * @ApiPropertyOptional: Swagger dokümantasyonunda bu alanın opsiyonel olduğunu belirtir
    * @IsOptional(): Bu alanın gönderilmesi zorunlu değildir (gönderilmezse varsayılan değer kullanılır)
@@ -76,7 +77,7 @@ export class PaginationQueryDto {
    * - Ağ trafiği artar
    * - Frontend'de render etmek zorlaşır
    * 
-   * Örnek: ?limit=20 (20 kayıt), ?limit=50 (50 kayıt), ?limit=100 (100 kayıt - maksimum)
+   * Örnek: ?results=20 (20 kayıt), ?results=50 (50 kayıt), ?results=100 (100 kayıt - maksimum)
    */
   @ApiPropertyOptional({
     description: 'Sayfa başına kayıt sayısı',
@@ -90,6 +91,6 @@ export class PaginationQueryDto {
   @IsInt()
   @Min(1)
   @Max(100)
-  limit?: number = 20;
+  results?: number = 20;
 }
 

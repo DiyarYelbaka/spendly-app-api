@@ -35,6 +35,12 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 // UserPayload: Kullanıcı bilgilerinin tipi
 import { CurrentUser, UserPayload } from '../core';
 
+// PaginatedResponseDto: Sayfalanmış yanıtlar için standart format
+import { PaginatedResponseDto } from '../core/dto/paginated-response.dto';
+
+// MessageKey: Mesaj anahtarları
+import { MessageKey } from '../core';
+
 /**
  * TransactionsController Sınıfı
  * 
@@ -200,7 +206,14 @@ export class TransactionsController {
     // Service'e işlem listeleme isteği gönderilir
     // user.id: Sadece bu kullanıcının işlemlerini getir
     // query: Filtreleme, arama ve sayfalama parametreleri
-    return await this.transactionsService.findAll(user.id, query);
+    const result = await this.transactionsService.findAll(user.id, query);
+    
+    // Standart formatlanmış yanıt döndür
+    return new PaginatedResponseDto(
+      result.items,
+      result.pagination,
+      MessageKey.TRANSACTIONS_RETRIEVED,
+    );
   }
 
   /**

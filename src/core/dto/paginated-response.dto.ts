@@ -8,18 +8,20 @@ import { SuccessResponseDto } from './success-response.dto';
  * PaginationDto Sınıfı
  * 
  * Bu sınıf, sayfalama (pagination) bilgilerini tanımlar.
+ * React Native AdvancedList bileşeni için camelCase formatında.
  * 
  * Sayfalama Nedir?
  * Sayfalama, büyük veri listelerini küçük parçalara bölerek göstermek için kullanılan bir tekniktir.
  * 
  * Bu sınıf, sayfalama hakkında bilgi verir:
  * - Toplam kaç kayıt var?
+ * - Toplam kaç sayfa var?
  * - Hangi sayfadayız?
  * - Sayfa başına kaç kayıt gösteriliyor?
  */
 export class PaginationDto {
   /**
-   * total: Toplam kayıt sayısı
+   * totalResults: Toplam kayıt sayısı (camelCase)
    * 
    * Tüm kayıtların toplam sayısı (sayfalama olmadan).
    * 
@@ -30,10 +32,24 @@ export class PaginationDto {
    * Örnek: 100 kayıt varsa ve sayfa başına 20 kayıt gösteriliyorsa → 5 sayfa olur
    */
   @ApiProperty({ example: 100, description: 'Toplam kayıt sayısı' })
-  total: number;
+  totalResults: number;
 
   /**
-   * current_page: Mevcut sayfa numarası
+   * totalPages: Toplam sayfa sayısı (camelCase)
+   * 
+   * Toplam kaç sayfa olduğunu belirtir.
+   * 
+   * @ApiProperty: Swagger dokümantasyonunda bu alanın özelliklerini belirtir
+   * 
+   * number: Sayı tipinde (örneğin: 5, 10, 25)
+   * 
+   * Örnek: 100 kayıt, 20 kayıt/sayfa → 5 sayfa
+   */
+  @ApiProperty({ example: 5, description: 'Toplam sayfa sayısı' })
+  totalPages: number;
+
+  /**
+   * currentPage: Mevcut sayfa numarası (camelCase)
    * 
    * Kullanıcının hangi sayfada olduğunu belirtir.
    * 
@@ -44,10 +60,10 @@ export class PaginationDto {
    * Örnek: 1 → İlk sayfa, 2 → İkinci sayfa
    */
   @ApiProperty({ example: 1, description: 'Mevcut sayfa' })
-  current_page: number;
+  currentPage: number;
 
   /**
-   * per_page: Sayfa başına kayıt sayısı
+   * perPage: Sayfa başına kayıt sayısı (camelCase)
    * 
    * Bir sayfada kaç kayıt gösterildiğini belirtir.
    * 
@@ -58,7 +74,7 @@ export class PaginationDto {
    * Örnek: 20 → Her sayfada 20 kayıt gösteriliyor
    */
   @ApiProperty({ example: 20, description: 'Sayfa başına kayıt sayısı' })
-  per_page: number;
+  perPage: number;
 }
 
 /**
@@ -127,7 +143,7 @@ export class PaginatedDataDto<T = any> {
  * Örnek Kullanım:
  * return new PaginatedResponseDto(
  *   categories,                    // items
- *   { total: 100, current_page: 1, per_page: 20 }, // pagination
+ *   { totalResults: 100, totalPages: 5, currentPage: 1, perPage: 20 }, // pagination
  *   MessageKey.CATEGORIES_RETRIEVED, // messageKey
  *   'Kategoriler getirildi'         // message (opsiyonel)
  * );
@@ -138,7 +154,7 @@ export class PaginatedDataDto<T = any> {
  *   message_key: "CATEGORIES_RETRIEVED",
  *   data: {
  *     items: [{ id: "...", name: "Yemek" }, ...],
- *     pagination: { total: 100, current_page: 1, per_page: 20 }
+ *     pagination: { totalResults: 100, totalPages: 5, currentPage: 1, perPage: 20 }
  *   },
  *   message: "Kategoriler getirildi"
  * }

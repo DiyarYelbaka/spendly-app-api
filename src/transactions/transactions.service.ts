@@ -328,7 +328,7 @@ export class TransactionsService {
        * 
        * Örnek: page=2, limit=20 → skip=20 (ilk 20 kayıt atlanır)
        */
-      const { page, limit, skip } = parsePagination(query.page, query.limit);
+      const { page, limit, skip } = parsePagination(query.page, query.results);
 
       /**
        * ADIM 2: Filtreleme Kriterlerini Oluştur

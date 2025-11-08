@@ -228,7 +228,7 @@ export class CategoriesService {
 
   async findAll(userId: string, query: CategoryQueryDto) {
     try {
-      const { page, limit, skip } = parsePagination(query.page, query.limit);
+      const { page, limit, skip } = parsePagination(query.page, query.results);
 
       const where: any = {
         userId,
