@@ -1,15 +1,20 @@
-import { BadRequestException } from '@nestjs/common';
+import { HttpStatus } from '@nestjs/common';
+import { BaseException } from './base.exception';
+import { ErrorCode } from './error-codes.enum';
 
-export class ValidationException extends BadRequestException {
+/**
+ * Validation exception
+ * Used for input validation errors
+ */
+export class ValidationException extends BaseException {
   constructor(public fields: Record<string, any[]>) {
-    super({
-      success: false,
-      message_key: 'VALIDATION_ERROR',
-      error: 'VALIDATION_ERROR',
+    super(
+      HttpStatus.BAD_REQUEST,
+      'Doğrulama hatası',
+      ErrorCode.VALIDATION_ERROR,
+      ErrorCode.VALIDATION_ERROR,
       fields,
-      summary: `${Object.keys(fields).length} alanda hata bulundu`,
-      message: 'Doğrulama hatası',
-    });
+    );
   }
 }
 

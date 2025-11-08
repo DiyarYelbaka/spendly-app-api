@@ -179,7 +179,7 @@ export class TransactionsService {
     ]);
 
     return {
-      transactions: transactions.map((t) => this.formatTransaction(t)),
+      transactions: transactions.map((t: any) => this.formatTransaction(t)),
       pagination: {
         total,
         current_page: page,

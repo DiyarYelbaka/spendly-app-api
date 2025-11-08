@@ -6,36 +6,35 @@ import {
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
+import { SuccessResponseDto } from '../dto/success-response.dto';
+import { MessageKey, MessageTexts } from '../constants/message-keys.constant';
 
-export interface Response<T> {
-  success: boolean;
-  message_key?: string;
-  data: T;
-  message?: string;
-}
-
+/**
+ * Transform Interceptor
+ * Automatically wraps responses in SuccessResponseDto format
+ * If response is already formatted (has success field), returns as is
+ */
 @Injectable()
 export class TransformInterceptor<T>
-  implements NestInterceptor<T, Response<T>>
+  implements NestInterceptor<T, SuccessResponseDto<T>>
 {
   intercept(
     context: ExecutionContext,
     next: CallHandler,
-  ): Observable<Response<T>> {
+  ): Observable<SuccessResponseDto<T>> {
     return next.handle().pipe(
       map((data) => {
-        // Eğer data zaten formatlanmışsa (success field'ı varsa), olduğu gibi döndür
+        // Eğer data zaten formatlanmışsa (SuccessResponseDto veya benzeri), olduğu gibi döndür
         if (data && typeof data === 'object' && 'success' in data) {
-          return data;
+          return data as SuccessResponseDto<T>;
         }
 
-        // Aksi halde standart format
-        return {
-          success: true,
-          message_key: 'SUCCESS',
-          data: data,
-          message: 'İşlem başarılı',
-        };
+        // Aksi halde standart format ile wrap et
+        return new SuccessResponseDto(
+          data,
+          MessageKey.SUCCESS,
+          MessageTexts[MessageKey.SUCCESS],
+        );
       }),
     );
   }

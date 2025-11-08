@@ -222,18 +222,18 @@ export class AnalyticsService {
 
     // Toplam gelir/gider hesapla
     const totalIncome = incomeCategories.reduce(
-      (sum, cat) => sum + (cat._sum.amount?.toNumber() || 0),
+      (sum: number, cat: any) => sum + (cat._sum.amount?.toNumber() || 0),
       0,
     );
     const totalExpense = expenseCategories.reduce(
-      (sum, cat) => sum + (cat._sum.amount?.toNumber() || 0),
+      (sum: number, cat: any) => sum + (cat._sum.amount?.toNumber() || 0),
       0,
     );
 
     // Kategori isimlerini al
     const categoryIds = [
-      ...incomeCategories.map((c) => c.categoryId),
-      ...expenseCategories.map((c) => c.categoryId),
+      ...incomeCategories.map((c: any) => c.categoryId),
+      ...expenseCategories.map((c: any) => c.categoryId),
     ];
     const categories = await this.prisma.category.findMany({
       where: {
@@ -245,10 +245,10 @@ export class AnalyticsService {
       },
     });
 
-    const categoryMap = new Map(categories.map((c) => [c.id, c.name]));
+    const categoryMap = new Map(categories.map((c: any) => [c.id, c.name]));
 
     // Gelir kategorileri için breakdown
-    const incomeBreakdown = incomeCategories.map((cat) => {
+    const incomeBreakdown = incomeCategories.map((cat: any) => {
       const amount = cat._sum.amount?.toNumber() || 0;
       const percentage = totalIncome > 0 ? (amount / totalIncome) * 100 : 0;
       return {
@@ -260,7 +260,7 @@ export class AnalyticsService {
     });
 
     // Gider kategorileri için breakdown
-    const expenseBreakdown = expenseCategories.map((cat) => {
+    const expenseBreakdown = expenseCategories.map((cat: any) => {
       const amount = cat._sum.amount?.toNumber() || 0;
       const percentage = totalExpense > 0 ? (amount / totalExpense) * 100 : 0;
       return {
@@ -295,7 +295,7 @@ export class AnalyticsService {
     });
 
     // Kategori isimlerini al
-    const categoryIds = categories.map((c) => c.categoryId);
+    const categoryIds = categories.map((c: any) => c.categoryId);
     const categoryDetails = await this.prisma.category.findMany({
       where: {
         id: { in: categoryIds },
@@ -306,9 +306,9 @@ export class AnalyticsService {
       },
     });
 
-    const categoryMap = new Map(categoryDetails.map((c) => [c.id, c.name]));
+    const categoryMap = new Map(categoryDetails.map((c: any) => [c.id, c.name]));
 
-    return categories.map((cat) => ({
+    return categories.map((cat: any) => ({
       name: categoryMap.get(cat.categoryId) || 'Bilinmeyen',
       amount: cat._sum.amount?.toNumber() || 0,
       type: cat.type,

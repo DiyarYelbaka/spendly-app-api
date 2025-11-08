@@ -57,7 +57,7 @@ export class AuthService {
 
     // Transaction içinde user ve default kategorileri oluştur
     // Eğer herhangi bir işlem başarısız olursa, tüm işlemler geri alınır (rollback)
-    const result = await this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx: any) => {
       // User oluştur
       const user = await tx.user.create({
         data: {
@@ -186,7 +186,7 @@ export class AuthService {
         { sub: user.id, email: user.email },
         {
           secret: this.configService.get<string>('JWT_SECRET') || 'your-super-secret-jwt-key-change-this-in-production',
-          expiresIn: this.configService.get<string>('JWT_EXPIRES_IN') || '7d',
+          expiresIn: (this.configService.get<string>('JWT_EXPIRES_IN') || '7d') as import('ms').StringValue,
         },
       );
 
@@ -260,12 +260,12 @@ export class AuthService {
 
     const accessToken = this.jwtService.sign(payload, {
       secret: this.configService.get<string>('JWT_SECRET') || 'your-super-secret-jwt-key-change-this-in-production',
-      expiresIn: this.configService.get<string>('JWT_EXPIRES_IN') || '7d',
+      expiresIn: (this.configService.get<string>('JWT_EXPIRES_IN') || '7d') as import('ms').StringValue,
     });
 
     const refreshToken = this.jwtService.sign(payload, {
       secret: this.configService.get<string>('JWT_SECRET') || 'your-super-secret-jwt-key-change-this-in-production',
-      expiresIn: '30d', // Refresh token daha uzun süreli
+      expiresIn: '30d' as import('ms').StringValue, // Refresh token daha uzun süreli
     });
 
     // Expires at hesapla

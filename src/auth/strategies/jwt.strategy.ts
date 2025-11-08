@@ -18,6 +18,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: any) {
+    // Fetch user from database
+    // Note: If middleware already attached user, guard will skip this strategy
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
       select: {
