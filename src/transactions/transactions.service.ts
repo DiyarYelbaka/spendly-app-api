@@ -32,6 +32,8 @@ export class TransactionsService {
     // Tarih kontrolü (default: bugün)
     const transactionDate = dto.date ? new Date(dto.date) : new Date();
 
+    // Tek bir kayıt oluşturulduğu için transaction'a gerek yok
+    // Prisma zaten her query'yi kendi transaction'ında çalıştırır
     const transaction = await this.prisma.transaction.create({
       data: {
         amount: dto.amount,
@@ -78,6 +80,8 @@ export class TransactionsService {
     // Tarih kontrolü (default: bugün)
     const transactionDate = dto.date ? new Date(dto.date) : new Date();
 
+    // Tek bir kayıt oluşturulduğu için transaction'a gerek yok
+    // Prisma zaten her query'yi kendi transaction'ında çalıştırır
     const transaction = await this.prisma.transaction.create({
       data: {
         amount: dto.amount,
@@ -249,6 +253,8 @@ export class TransactionsService {
       }
     }
 
+    // Tek bir kayıt güncellendiği için transaction'a gerek yok
+    // Prisma zaten her query'yi kendi transaction'ında çalıştırır
     const updated = await this.prisma.transaction.update({
       where: { id },
       data: {

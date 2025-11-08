@@ -32,6 +32,8 @@ export class CategoriesService {
       });
     }
 
+    // Tek bir kayıt oluşturulduğu için transaction'a gerek yok
+    // Prisma zaten her query'yi kendi transaction'ında çalıştırır
     const category = await this.prisma.category.create({
       data: {
         name: dto.name,
@@ -270,6 +272,8 @@ export class CategoriesService {
     if (dto.sort_order !== undefined) updateData.sortOrder = dto.sort_order;
     if (dto.is_active !== undefined) updateData.isActive = dto.is_active;
 
+    // Tek bir kayıt güncellendiği için transaction'a gerek yok
+    // Prisma zaten her query'yi kendi transaction'ında çalıştırır
     const updated = await this.prisma.category.update({
       where: { id },
       data: updateData,

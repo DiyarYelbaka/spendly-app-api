@@ -8,7 +8,6 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../common/prisma.service';
-import { CategoriesService } from '../categories/categories.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
@@ -19,7 +18,6 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private configService: ConfigService,
-    private categoriesService: CategoriesService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -57,34 +55,63 @@ export class AuthService {
     // Password hash
     const hashedPassword = await bcrypt.hash(dto.password, 10);
 
-    // User oluştur
-    const user = await this.prisma.user.create({
-      data: {
-        email: dto.email,
-        password: hashedPassword,
-        name: dto.name,
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        createdAt: true,
-      },
+    // Transaction içinde user ve default kategorileri oluştur
+    // Eğer herhangi bir işlem başarısız olursa, tüm işlemler geri alınır (rollback)
+    const result = await this.prisma.$transaction(async (tx) => {
+      // User oluştur
+      const user = await tx.user.create({
+        data: {
+          email: dto.email,
+          password: hashedPassword,
+          name: dto.name,
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          createdAt: true,
+        },
+      });
+
+      // Default kategorileri oluştur
+      const defaultCategories = [
+        // Income kategorileri
+        { name: 'Maaş', type: 'income', icon: '💰', color: '#00C853', sortOrder: 1 },
+        { name: 'Yatırım', type: 'income', icon: '📈', color: '#00E676', sortOrder: 2 },
+        { name: 'Diğer Gelirler', type: 'income', icon: '💵', color: '#69F0AE', sortOrder: 3 },
+        // Expense kategorileri
+        { name: 'Yemek', type: 'expense', icon: '🍔', color: '#FF5722', sortOrder: 1 },
+        { name: 'Ulaşım', type: 'expense', icon: '🚗', color: '#FF9800', sortOrder: 2 },
+        { name: 'Faturalar', type: 'expense', icon: '💡', color: '#FFC107', sortOrder: 3 },
+        { name: 'Eğlence', type: 'expense', icon: '🎬', color: '#9C27B0', sortOrder: 4 },
+        { name: 'Sağlık', type: 'expense', icon: '🏥', color: '#F44336', sortOrder: 5 },
+        { name: 'Diğer Giderler', type: 'expense', icon: '📦', color: '#607D8B', sortOrder: 6 },
+      ];
+
+      await Promise.all(
+        defaultCategories.map((cat) =>
+          tx.category.create({
+            data: {
+              name: cat.name,
+              type: cat.type,
+              icon: cat.icon,
+              color: cat.color,
+              sortOrder: cat.sortOrder,
+              isDefault: true,
+              userId: user.id,
+            },
+          }),
+        ),
+      );
+
+      return user;
     });
 
-    // JWT token oluştur
-    const tokens = await this.generateTokens(user.id);
-
-    // Default kategorileri oluştur
-    try {
-      await this.categoriesService.createDefaultCategories(user.id);
-    } catch (error) {
-      // Default kategori oluşturma hatası kritik değil, log'la devam et
-      console.error('Default kategoriler oluşturulurken hata:', error);
-    }
+    // JWT token oluştur (transaction dışında - veritabanı işlemi değil)
+    const tokens = await this.generateTokens(result.id);
 
     return {
-      user,
+      user: result,
       tokens,
     };
   }
