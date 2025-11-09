@@ -22,11 +22,13 @@ import {
 
 // TransactionsService: İşlem işlemlerini yapan servis sınıfı
 import { TransactionsService } from './transactions.service';
+import { VoiceTransactionService } from './voice-transaction.service';
 
 // DTO'lar: Gelen verilerin yapısını tanımlayan sınıflar
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { TransactionQueryDto } from './dto/transaction-query.dto';
+import { VoiceTransactionDto } from './dto/voice-transaction.dto';
 
 // JwtAuthGuard: JWT token kontrolü yapan guard (koruyucu)
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -70,7 +72,10 @@ export class TransactionsController {
    * private readonly: Bu değişken sadece bu sınıf içinde kullanılabilir ve değiştirilemez
    * transactionsService: İşlem işlemlerini yapan servis
    */
-  constructor(private readonly transactionsService: TransactionsService) {}
+  constructor(
+    private readonly transactionsService: TransactionsService,
+    private readonly voiceTransactionService: VoiceTransactionService,
+  ) {}
 
   /**
    * createIncome: Gelir ekleme endpoint'i
@@ -282,6 +287,67 @@ export class TransactionsController {
     // dto: Güncelleme bilgileri (sadece gönderilen alanlar güncellenir)
     // user.id: Sadece bu kullanıcıya ait işlemleri güncelleyebilir
     return await this.transactionsService.update(id, dto, user.id);
+  }
+
+  /**
+   * voiceTransaction: Ses komutu ile işlem ekleme endpoint'i
+   * 
+   * HTTP Metodu: POST
+   * URL: /api/transactions/voice
+   * 
+   * Bu endpoint, ses komutundan gelen text'i parse edip otomatik olarak işlem oluşturur.
+   * 
+   * @Post('voice'): Bu fonksiyonun POST /api/transactions/voice isteğine yanıt vereceğini belirtir
+   * 
+   * Parametreler:
+   * @Body() dto: Request body'den gelen text (VoiceTransactionDto formatında)
+   *   - text: Ses komutundan çevrilen text (zorunlu, max 500 karakter)
+   * 
+   * @CurrentUser() user: JWT token'dan alınan mevcut kullanıcı bilgisi
+   * 
+   * Dönüş Değeri:
+   * - 201 Created: İşlem başarıyla oluşturuldu
+   *   {
+   *     success: true,
+   *     data: {
+   *       transaction: { ... },
+   *       parsing: {
+   *         method: "ai",
+   *         confidence: 0.9,
+   *         category_found: true
+   *       }
+   *     }
+   *   }
+   * - 400 Bad Request: Text parse edilemedi veya geçersiz veri
+   * 
+   * İş Akışı:
+   * 1. Text'i AI ile parse et (OpenAI GPT-4o-mini)
+   * 2. Kategori bul (bulunamazsa default kullan: "diğer gelirler" veya "diğer giderleri")
+   * 3. Transaction oluştur (createIncome veya createExpense)
+   * 
+   * Örnek Kullanım:
+   * POST /api/transactions/voice
+   * {
+   *   "text": "500 tl lik market alışverişi yaptım"
+   * }
+   */
+  @Post('voice')
+  @ApiOperation({ summary: 'Ses komutu ile işlem ekle' })
+  @ApiResponse({ status: 201, description: 'İşlem başarıyla oluşturuldu' })
+  @ApiResponse({ status: 400, description: 'Text parse edilemedi veya geçersiz veri' })
+  async voiceTransaction(
+    @Body() dto: VoiceTransactionDto,
+    @CurrentUser() user: UserPayload,
+  ) {
+    // Voice transaction service'e parse ve create isteği gönderilir
+    // dto.text: Kullanıcıdan gelen text
+    // user.id: İşlemi oluşturan kullanıcının ID'si
+    const result = await this.voiceTransactionService.parseAndCreate(
+      dto.text,
+      user.id,
+    );
+
+    return result;
   }
 
   /**

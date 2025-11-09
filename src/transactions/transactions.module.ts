@@ -5,6 +5,7 @@ import { Module } from '@nestjs/common';
 // Transactions modülünün bileşenleri
 import { TransactionsController } from './transactions.controller';
 import { TransactionsService } from './transactions.service';
+import { VoiceTransactionService } from './voice-transaction.service';
 
 // PrismaModule: Veritabanı işlemleri için gerekli modül
 import { PrismaModule } from '../core';
@@ -44,7 +45,7 @@ import { PrismaModule } from '../core';
 @Module({
   imports: [PrismaModule],
   controllers: [TransactionsController],
-  providers: [TransactionsService],
+  providers: [TransactionsService, VoiceTransactionService],
   exports: [TransactionsService],
 })
 export class TransactionsModule {}

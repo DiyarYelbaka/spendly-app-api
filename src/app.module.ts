@@ -30,6 +30,7 @@ import { JwtModule } from '@nestjs/jwt';
 
 // jwtConfig: JWT ayarlarını yüklemek için
 import jwtConfig from './config/jwt.config';
+import openaiConfig from './config/openai.config';
 
 /**
  * AppModule Sınıfı
@@ -69,6 +70,7 @@ import jwtConfig from './config/jwt.config';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
+      load: [openaiConfig], // OpenAI config'i yükle
     }),
     PrismaModule,
     AuthModule,

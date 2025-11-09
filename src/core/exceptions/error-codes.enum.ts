@@ -78,6 +78,13 @@ export enum ErrorCode {
   CANNOT_DELETE_CATEGORY_WITH_TRANSACTIONS = 'CANNOT_DELETE_CATEGORY_WITH_TRANSACTIONS', // Üzerinde işlem olan kategori silinemez
   INVALID_CATEGORY = 'INVALID_CATEGORY',      // Geçersiz kategori (örneğin: gelir işlemi için expense kategorisi)
   PASSWORD_MISMATCH = 'PASSWORD_MISMATCH',    // Şifreler eşleşmiyor (örneğin: şifre ve şifre onayı)
+  TRANSACTION_TYPE_UNDETERMINED = 'TRANSACTION_TYPE_UNDETERMINED', // İşlem tipi belirlenemedi
+  DEFAULT_CATEGORY_NOT_FOUND = 'DEFAULT_CATEGORY_NOT_FOUND', // Varsayılan kategori bulunamadı
+  AI_PARSING_DISABLED = 'AI_PARSING_DISABLED', // AI parsing servisi aktif değil
+  AI_NO_RESPONSE = 'AI_NO_RESPONSE',          // AI yanıt vermedi
+  AI_PARSE_ERROR = 'AI_PARSE_ERROR',         // AI yanıtı parse edilemedi
+  AI_INCOMPLETE_RESPONSE = 'AI_INCOMPLETE_RESPONSE', // AI yanıtında eksik bilgi
+  PARSE_ERROR = 'PARSE_ERROR',               // Text parse edilemedi
 
   /**
    * Server Errors (500) - Sunucu Hataları
