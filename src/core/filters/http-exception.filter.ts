@@ -169,28 +169,122 @@ export class HttpExceptionFilter implements ExceptionFilter {
         const responseObj = exceptionResponse as any;
         
         /**
-         * Hata Bilgilerini Çıkar
+         * ADIM 4.1.3: Validation Hatalarını Özel Formatta İşle
          * 
-         * message: Hata mesajı
-         *   - responseObj.message: Özel mesaj varsa kullanılır
-         *   - || exception.message: Yoksa exception'ın kendi mesajı kullanılır
+         * class-validator kütüphanesi, validation hatalarını özel bir formatta döndürür.
+         * Bu formatı, frontend'in beklediği formata çeviririz.
          * 
-         * messageKey: Mesaj anahtarı
-         *   - responseObj.message_key veya responseObj.messageKey: Özel anahtar varsa kullanılır
-         *   - || this.getErrorCode(status): Yoksa HTTP durum koduna göre belirlenir
+         * Validation Hataları Formatı (class-validator):
+         * {
+         *   message: [
+         *     { property: "email", constraints: { isEmail: "Email geçerli olmalıdır" } },
+         *     { property: "password", constraints: { minLength: "Şifre en az 8 karakter olmalıdır" } }
+         *   ]
+         * }
          * 
-         * error: Hata kodu
-         *   - responseObj.error: Özel kod varsa kullanılır
-         *   - || this.getErrorCode(status): Yoksa HTTP durum koduna göre belirlenir
+         * Frontend'in Beklediği Format:
+         * {
+         *   fields: {
+         *     email: [{ message: "Email geçerli olmalıdır", value: "...", location: "body" }],
+         *     password: [{ message: "Şifre en az 8 karakter olmalıdır", value: "...", location: "body" }]
+         *   }
+         * }
          * 
-         * fields: Alan bazlı hatalar
-         *   - responseObj.fields: Varsa kullanılır
-         *   - || null: Yoksa null
+         * ÖNEMLİ: Validation kontrolü, responseObj.message üzerinden yapılmalıdır.
+         * Çünkü NestJS ValidationPipe, BadRequestException fırlatır ve response.message bir array olur.
          */
-        message = responseObj.message || exception.message;
-        messageKey = responseObj.message_key || responseObj.messageKey || this.getErrorCode(status);
-        error = responseObj.error || this.getErrorCode(status);
-        fields = responseObj.fields || null;
+        // Validation hatalarını kontrol et
+        // NestJS ValidationPipe, BadRequestException fırlatır ve message bir array olur
+        // Format: { statusCode: 400, message: [{ property: "...", constraints: {...} }], error: "Bad Request" }
+        if (status === HttpStatus.BAD_REQUEST && Array.isArray(responseObj.message) && responseObj.message.length > 0) {
+          const validationErrors = responseObj.message;
+          fields = {};
+          
+          /**
+           * Request metodunu ve URL'i kontrol et
+           * Query parametreleri genellikle GET isteklerinde olur
+           */
+          const isQueryParam = request.method === 'GET' || request.url.includes('?');
+          
+          /**
+           * Her Validation Hatasını İşle
+           * 
+           * forEach: Dizideki her eleman için fonksiyon çalıştırır
+           * 
+           * error.property: Hangi alanda hata var? (örneğin: "email", "password", "results")
+           * error.constraints: O alandaki hata mesajları (örneğin: { max: "...", isEmail: "..." })
+           * error.value: Gönderilen değer (örneğin: "invalid-email", 1000)
+           * error.target: Hangi DTO'da hata var? (query DTO'su ise query parametresi)
+           */
+          validationErrors.forEach((error: any) => {
+            if (error.property) {
+              /**
+               * Location Belirleme
+               * 
+               * Query parametreleri için location: 'query'
+               * Body parametreleri için location: 'body'
+               * 
+               * error.target kontrolü: Eğer target PaginationQueryDto gibi bir query DTO'su ise,
+               * veya request method GET ise, query parametresi olabilir.
+               */
+              const location = isQueryParam ? 'query' : 'body';
+              
+              /**
+               * Alan Bazlı Hataları Oluştur
+               * 
+               * Object.values(error.constraints): Tüm hata mesajlarını alır
+               *   Örnek: { max: "results must not be greater than 100", isInt: "results must be an integer number" }
+               *   → ["results must not be greater than 100", "results must be an integer number"]
+               * 
+               * map(): Her mesajı bir nesneye çevirir
+               *   - message: Hata mesajı
+               *   - value: Gönderilen değer
+               *   - location: Hatanın nerede olduğu (body, query, param)
+               */
+              const constraints = error.constraints || {};
+              if (Object.keys(constraints).length > 0) {
+                fields[error.property] = Object.values(constraints).map(
+                  (constraint: string) => ({
+                    message: constraint,
+                    value: error.value,
+                    location,
+                  }),
+                );
+              }
+            }
+          });
+          
+          /**
+           * Validation Hataları İçin Özel Mesajlar
+           */
+          messageKey = ErrorCode.VALIDATION_ERROR;
+          error = ErrorCode.VALIDATION_ERROR;
+          message = 'Doğrulama hatası';
+        } else {
+          /**
+           * Hata Bilgilerini Çıkar (Validation hatası değilse)
+           * 
+           * message: Hata mesajı
+           *   - responseObj.message: Özel mesaj varsa kullanılır
+           *   - || exception.message: Yoksa exception'ın kendi mesajı kullanılır
+           * 
+           * messageKey: Mesaj anahtarı
+           *   - responseObj.message_key veya responseObj.messageKey: Özel anahtar varsa kullanılır
+           *   - || this.getErrorCode(status): Yoksa HTTP durum koduna göre belirlenir
+           * 
+           * error: Hata kodu
+           *   - responseObj.error: Özel kod varsa kullanılır
+           *   - || this.getErrorCode(status): Yoksa HTTP durum koduna göre belirlenir
+           * 
+           * fields: Alan bazlı hatalar
+           *   - responseObj.fields: Varsa kullanılır
+           *   - || null: Yoksa null
+           */
+          message = responseObj.message || exception.message;
+          messageKey = responseObj.message_key || responseObj.messageKey || this.getErrorCode(status);
+          error = responseObj.error || this.getErrorCode(status);
+          fields = responseObj.fields || null;
+        }
       } 
       /**
        * ADIM 4.1.2: String Response İşle
@@ -201,94 +295,6 @@ export class HttpExceptionFilter implements ExceptionFilter {
         message = exceptionResponse as string;
         messageKey = this.getErrorCode(status);
         error = this.getErrorCode(status);
-      }
-
-      /**
-       * ADIM 4.1.3: Validation Hatalarını Özel Formatta İşle
-       * 
-       * class-validator kütüphanesi, validation hatalarını özel bir formatta döndürür.
-       * Bu formatı, frontend'in beklediği formata çeviririz.
-       * 
-       * Validation Hataları Formatı (class-validator):
-       * {
-       *   message: [
-       *     { property: "email", constraints: { isEmail: "Email geçerli olmalıdır" } },
-       *     { property: "password", constraints: { minLength: "Şifre en az 8 karakter olmalıdır" } }
-       *   ]
-       * }
-       * 
-       * Frontend'in Beklediği Format:
-       * {
-       *   fields: {
-       *     email: [{ message: "Email geçerli olmalıdır", value: "...", location: "body" }],
-       *     password: [{ message: "Şifre en az 8 karakter olmalıdır", value: "...", location: "body" }]
-       *   }
-       * }
-       */
-      if (status === HttpStatus.BAD_REQUEST && Array.isArray((exceptionResponse as any)?.message)) {
-        const validationErrors = (exceptionResponse as any).message;
-        fields = {};
-        
-        /**
-         * Request metodunu ve URL'i kontrol et
-         * Query parametreleri genellikle GET isteklerinde olur
-         */
-        const isQueryParam = request.method === 'GET' || request.url.includes('?');
-        
-        /**
-         * Her Validation Hatasını İşle
-         * 
-         * forEach: Dizideki her eleman için fonksiyon çalıştırır
-         * 
-         * error.property: Hangi alanda hata var? (örneğin: "email", "password", "results")
-         * error.constraints: O alandaki hata mesajları (örneğin: { max: "...", isEmail: "..." })
-         * error.value: Gönderilen değer (örneğin: "invalid-email", 1000)
-         * error.target: Hangi DTO'da hata var? (query DTO'su ise query parametresi)
-         */
-        validationErrors.forEach((error: any) => {
-          if (error.property) {
-            /**
-             * Location Belirleme
-             * 
-             * Query parametreleri için location: 'query'
-             * Body parametreleri için location: 'body'
-             * 
-             * error.target kontrolü: Eğer target PaginationQueryDto gibi bir query DTO'su ise,
-             * veya request method GET ise, query parametresi olabilir.
-             */
-            const location = isQueryParam ? 'query' : 'body';
-            
-            /**
-             * Alan Bazlı Hataları Oluştur
-             * 
-             * Object.values(error.constraints): Tüm hata mesajlarını alır
-             *   Örnek: { max: "results must not be greater than 100", isInt: "results must be an integer number" }
-             *   → ["results must not be greater than 100", "results must be an integer number"]
-             * 
-             * map(): Her mesajı bir nesneye çevirir
-             *   - message: Hata mesajı
-             *   - value: Gönderilen değer
-             *   - location: Hatanın nerede olduğu (body, query, param)
-             */
-            const constraints = error.constraints || {};
-            if (Object.keys(constraints).length > 0) {
-              fields[error.property] = Object.values(constraints).map(
-                (constraint: string) => ({
-                  message: constraint,
-                  value: error.value,
-                  location,
-                }),
-              );
-            }
-          }
-        });
-        
-        /**
-         * Validation Hataları İçin Özel Mesajlar
-         */
-        messageKey = ErrorCode.VALIDATION_ERROR;
-        error = ErrorCode.VALIDATION_ERROR;
-        message = 'Doğrulama hatası';
       }
     } 
     /**

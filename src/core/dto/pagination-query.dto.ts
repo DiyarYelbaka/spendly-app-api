@@ -52,8 +52,8 @@ export class PaginationQueryDto {
   })
   @IsOptional()
   @Type(() => Number)
-  @IsInt()
-  @Min(1)
+  @IsInt({ message: 'Sayfa numarası tam sayı (integer) olmalıdır' })
+  @Min(1, { message: 'Sayfa numarası en az 1 olmalıdır' })
   page?: number = 1;
 
   /**
@@ -88,9 +88,9 @@ export class PaginationQueryDto {
   })
   @IsOptional()
   @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(100)
+  @IsInt({ message: 'Sayfa başına kayıt sayısı tam sayı (integer) olmalıdır' })
+  @Min(1, { message: 'Sayfa başına kayıt sayısı en az 1 olmalıdır' })
+  @Max(100, { message: 'Sayfa başına kayıt sayısı en fazla 100 olmalıdır' })
   results?: number = 20;
 }
 

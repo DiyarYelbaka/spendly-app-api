@@ -70,7 +70,7 @@ export class CategoryQueryDto extends PaginationQueryDto {
   })
   @IsOptional()
   @Transform(({ value }) => value !== 'false')
-  @IsBoolean()
+  @IsBoolean({ message: 'include_defaults boolean olmalıdır' })
   include_defaults?: boolean;
 
   /**
@@ -92,7 +92,7 @@ export class CategoryQueryDto extends PaginationQueryDto {
   })
   @IsOptional()
   @Transform(({ value }) => value === 'true')
-  @IsBoolean()
+  @IsBoolean({ message: 'include_stats boolean olmalıdır' })
   include_stats?: boolean;
 
   /**
@@ -111,7 +111,7 @@ export class CategoryQueryDto extends PaginationQueryDto {
     example: 'yemek',
   })
   @IsOptional()
-  @IsString()
+  @IsString({ message: 'Arama terimi string (metin) olmalıdır' })
   search?: string;
 }
 

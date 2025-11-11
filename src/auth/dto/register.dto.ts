@@ -73,7 +73,7 @@ export class RegisterDto {
     description: 'Kullanıcı şifresi (min 6 karakter, en az 1 küçük harf, 1 büyük harf, 1 rakam)',
     minLength: 6,
   })
-  @IsString()
+  @IsString({ message: 'Şifre string (metin) olmalıdır' })
   @IsNotEmpty({ message: 'Şifre alanı zorunludur' })
   @MinLength(6, { message: 'Şifre en az 6 karakter olmalıdır' })
   @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, {
@@ -97,7 +97,7 @@ export class RegisterDto {
     example: 'Password123!',
     description: 'Şifre tekrarı (password ile eşleşmeli)',
   })
-  @IsString()
+  @IsString({ message: 'Şifre tekrarı string (metin) olmalıdır' })
   @IsNotEmpty({ message: 'Şifre tekrarı alanı zorunludur' })
   confirmPassword: string;
 
@@ -125,7 +125,7 @@ export class RegisterDto {
     minLength: 2,
     maxLength: 100,
   })
-  @IsString()
+  @IsString({ message: 'Ad string (metin) olmalıdır' })
   @IsNotEmpty({ message: 'Ad alanı zorunludur' })
   @MinLength(2, { message: 'Ad en az 2 karakter olmalıdır' })
   @MaxLength(100, { message: 'Ad en fazla 100 karakter olmalıdır' })

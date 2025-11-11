@@ -3,8 +3,9 @@
 import { NestFactory } from '@nestjs/core';
 
 // ValidationPipe: Gelen verilerin doğruluğunu kontrol etmek için kullanılan pipe
+// BadRequestException: Validation hataları için kullanılan exception
 // Pipe, verileri işlemeden önce dönüştürür veya doğrular
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, BadRequestException } from '@nestjs/common';
 
 // Swagger: API dokümantasyonu için kullanılan modüller
 // SwaggerModule: Swagger dokümantasyonunu oluşturmak için
@@ -154,6 +155,20 @@ async function bootstrap() {
       transform: true,
       transformOptions: {
         enableImplicitConversion: true,
+      },
+      exceptionFactory: (errors) => {
+        // Validation hatalarını object array formatında döndür
+        // Format: [{ property: "...", constraints: {...} }]
+        const formattedErrors = errors.map((error) => ({
+          property: error.property,
+          constraints: error.constraints || {},
+          value: error.value,
+        }));
+        return new BadRequestException({
+          message: formattedErrors,
+          error: 'Bad Request',
+          statusCode: 400,
+        });
       },
     }),
   );

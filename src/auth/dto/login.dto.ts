@@ -48,7 +48,7 @@ export class LoginDto {
     example: 'Password123!',
     description: 'Kullanıcı şifresi',
   })
-  @IsString()
+  @IsString({ message: 'Şifre string (metin) olmalıdır' })
   @IsNotEmpty({ message: 'Şifre alanı zorunludur' })
   password: string;
 }

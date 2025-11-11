@@ -43,7 +43,7 @@ export class RefreshTokenDto {
     example: 'refresh_token_string',
     description: 'Refresh token',
   })
-  @IsString()
+  @IsString({ message: 'Refresh token string (metin) olmalıdır' })
   @IsNotEmpty({ message: 'Refresh token alanı zorunludur' })
   refreshToken: string;
 }

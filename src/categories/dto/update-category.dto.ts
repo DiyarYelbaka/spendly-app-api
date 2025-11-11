@@ -48,7 +48,7 @@ export class UpdateCategoryDto {
     description: 'Kategori adı (2-20 karakter, opsiyonel)',
     required: false,
   })
-  @IsString()
+  @IsString({ message: 'Kategori adı string (metin) olmalıdır' })
   @IsOptional()
   @MinLength(2, { message: 'Kategori adı en az 2 karakter olmalıdır' })
   @MaxLength(20, { message: 'Kategori adı en fazla 20 karakter olmalıdır' })
@@ -72,7 +72,7 @@ export class UpdateCategoryDto {
     description: 'Kategori ikonu (1-10 karakter, opsiyonel)',
     required: false,
   })
-  @IsString()
+  @IsString({ message: 'İkon string (metin) olmalıdır' })
   @IsOptional()
   @MinLength(1, { message: 'İkon en az 1 karakter olmalıdır' })
   @MaxLength(10, { message: 'İkon en fazla 10 karakter olmalıdır' })
@@ -92,7 +92,7 @@ export class UpdateCategoryDto {
     description: 'Kategori rengi (Hex format, opsiyonel)',
     required: false,
   })
-  @IsString()
+  @IsString({ message: 'Renk string (metin) olmalıdır' })
   @IsOptional()
   @Matches(/^#[0-9A-Fa-f]{6}$/, {
     message: 'Renk hex formatında olmalıdır (örn: #FF5733)',
@@ -113,7 +113,7 @@ export class UpdateCategoryDto {
     description: 'Kategori açıklaması (max 500 karakter, opsiyonel)',
     required: false,
   })
-  @IsString()
+  @IsString({ message: 'Açıklama string (metin) olmalıdır' })
   @IsOptional()
   @MaxLength(500, { message: 'Açıklama en fazla 500 karakter olmalıdır' })
   description?: string;
@@ -133,7 +133,7 @@ export class UpdateCategoryDto {
     description: 'Sıralama sırası (0-9999, opsiyonel)',
     required: false,
   })
-  @IsInt({ message: 'Sıralama sırası tam sayı olmalıdır' })
+  @IsInt({ message: 'Sıralama sırası tam sayı (integer) olmalıdır' })
   @IsOptional()
   @Min(0, { message: 'Sıralama sırası en az 0 olmalıdır' })
   @Max(9999, { message: 'Sıralama sırası en fazla 9999 olmalıdır' })

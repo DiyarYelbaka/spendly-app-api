@@ -132,7 +132,7 @@ export class TransactionQueryDto extends PaginationQueryDto {
     example: 'maaş',
   })
   @IsOptional()
-  @IsString()
+  @IsString({ message: 'Arama terimi string (metin) olmalıdır' })
   search?: string;
 }
 

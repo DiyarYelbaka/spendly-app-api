@@ -46,7 +46,7 @@ export class UpdateTransactionDto {
     description: 'Açıklama (1-500 karakter, opsiyonel)',
     required: false,
   })
-  @IsString()
+  @IsString({ message: 'Açıklama string (metin) olmalıdır' })
   @IsOptional()
   @MinLength(1, { message: 'Açıklama en az 1 karakter olmalıdır' })
   @MaxLength(500, { message: 'Açıklama en fazla 500 karakter olmalıdır' })
@@ -75,7 +75,7 @@ export class UpdateTransactionDto {
     description: 'Notlar (max 1000 karakter, opsiyonel)',
     required: false,
   })
-  @IsString()
+  @IsString({ message: 'Notlar string (metin) olmalıdır' })
   @IsOptional()
   @MaxLength(1000, { message: 'Notlar en fazla 1000 karakter olmalıdır' })
   notes?: string;
