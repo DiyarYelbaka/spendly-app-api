@@ -150,7 +150,7 @@ export class VoiceTransactionService {
     const model = this.configService.get<string>('openai.model', 'gpt-4o-mini');
     const timeout = this.configService.get<number>('openai.timeout', 5000);
 
-    const systemPrompt = `Sen bir finansal işlem parser'ısın. Kullanıcının Türkçe veya İngilizce konuşmasını analiz edip structured JSON'a çevir. Günlük konuşma dilini, dolaylı anlatımları ve mizahi ifadeleri de anlayabilmelisin.
+    const systemPrompt = `Sen bir finansal işlem parser'ısın. Kullanıcının Türkçe veya İngilizce konuşmasını analiz edip structured JSON'a çevir.
 
 Çıktı formatı (JSON object zorunlu):
 {
@@ -163,41 +163,19 @@ export class VoiceTransactionService {
   "confidence": number (0.0-1.0)
 }
 
-GELİR (income) Tespiti:
-- Açık ifadeler: "aldım", "kazandım", "maaş", "gelir", "geldi", "ödemesi", "tahsilat"
-- Dolaylı ifadeler: "hesabıma yattı", "para geldi", "ödeme aldım", "bonus geldi", "prim aldım"
-- İngilizce: "received", "earned", "salary", "income", "got paid", "bonus received"
-
-GİDER (expense) Tespiti:
-- Açık ifadeler: "yaptım", "harcadım", "ödeme", "gider", "verdim", "ödedim", "çıktı"
-- Dolaylı/Kayıp ifadeler: "paramı çarptılar", "çaldılar", "götürdüler", "kaybettim", "uçtu gitti"
-- Zorla harcatma: "bana ödettirdi", "ödetmek zorunda kaldım", "masraflı oldu", "pahalıya patladı"
-- Mizahi/Günlük: "cüzdanımı boşalttı", "bütçemi salladı", "param bitti", "harcadım gitti"
-- İngilizce: "spent", "paid", "payment", "expense", "lost", "stolen", "had to pay"
-
-Tutar Çıkarma:
-- Mutlaka tutarı çıkar: sayı + para birimi ("500 tl", "250 lira", "100₺", "50 dollar", "$200")
-- Sayı formatları: "beş yüz", "500", "yarım bin" gibi ifadeleri anla
-- Para birimleri: "tl", "lira", "₺", "dollar", "$", "usd", "eur", "euro"
-
-Kategori Tespiti:
-- Türkçe: "market", "yemek", "restoran", "maaş", "yatırım", "ulaşım", "fatura", "eğlence", "sağlık", "giyim", "eğitim", "kira"
-- İngilizce: "grocery", "food", "restaurant", "salary", "investment", "transportation", "bills", "entertainment", "health", "clothing", "education", "rent"
-- Context'ten çıkar: "restorantta" → "food" veya "restaurant", "marketten" → "grocery" veya "food"
-
-Tarih Çıkarma:
-- Relatif tarihler: "dün/yesterday", "bugün/today", "yarın/tomorrow"
-- Geçmiş: "geçen hafta/last week", "geçen ay/last month", "2 gün önce/2 days ago"
-- Format: YYYY-MM-DD (bugünün tarihini baz al)
-
-Örnekler:
-- "500 tl paramı çarptılar" → {amount: 500, type: "expense", description: "paramı çarptılar", category_keyword: null, confidence: 0.9}
-- "kadının biri restorantta bana 500 tl ödettirdi" → {amount: 500, type: "expense", description: "restorantta ödettirdi", category_keyword: "restaurant", confidence: 0.95}
-- "dün 1000 lira kaybettim" → {amount: 1000, type: "expense", description: "kaybettim", date: "YYYY-MM-DD", confidence: 0.9}
-- "3000 maaş yattı" → {amount: 3000, type: "income", description: "maaş", category_keyword: "salary", confidence: 1.0}
-
-Önemli:
-- Context'i iyi anla: "bana ödettirdi" = expense, "bana verdi" = income
+Kurallar:
+- Türkçe: "aldım", "kazandım", "maaş", "gelir" → income
+- İngilizce: "received", "earned", "salary", "income" → income
+- Türkçe: "yaptım", "harcadım", "ödeme", "gider" → expense
+- İngilizce: "spent", "paid", "payment", "expense" → expense
+- Tutarı mutlaka çıkar (sayı + "tl", "lira", "₺", "dollar", "$" gibi)
+- Kategori keyword'ü çıkar (ÖNEMLİ: Kullanıcının özel kategori isimlerini de çıkar):
+  * Standart kategoriler: "market", "yemek", "maaş", "yatırım", "ulaşım", "fatura", "eğlence", "sağlık"
+  * İngilizce: "grocery", "food", "salary", "investment", "transportation", "bills", "entertainment", "health"
+  * Özel kategori isimleri: Metinde geçen herhangi bir özel isim veya kategori adı (örn: "TestA", "Petrol", "Kira" gibi)
+  * Örnek: "500 tl TestA harcaması yaptım" → category_keyword: "TestA"
+  * Örnek: "300 lira Petrol için ödeme yaptım" → category_keyword: "Petrol"
+- Tarih varsa çıkar ("dün/yesterday", "bugün/today", "geçen hafta/last week" gibi) YYYY-MM-DD formatında
 - Belirsizse confidence düşük olsun (0.5 altı)
 - Sadece JSON döndür, başka açıklama yapma`;
 
@@ -286,7 +264,13 @@ Tarih Çıkarma:
     // Eğer kategori keyword varsa, kullanıcının kategorilerinde ara
     if (categoryKeyword && type) {
       // Keyword'ü normalize et (küçük harf, trim)
-      const normalizedKeyword = categoryKeyword.toLowerCase().trim();
+      let normalizedKeyword = categoryKeyword.toLowerCase().trim();
+      
+      // "harcaması", "harcama", "gideri", "alışverişi" gibi ekleri temizle
+      // Örn: "A harcaması" → "A", "Market alışverişi" → "Market"
+      normalizedKeyword = normalizedKeyword
+        .replace(/\s+(harcaması|harcama|gideri|gider|geliri|gelir|alışverişi|alışveriş|işlemi|işlem|ödeme|ödemi)\s*$/i, '')
+        .trim();
 
       // Tüm kullanıcının kategorilerini al
       const allCategories = await this.prisma.category.findMany({
@@ -299,7 +283,7 @@ Tarih Çıkarma:
 
       // 1. Önce direkt eşleşme kontrolü
       const directMatch = allCategories.find((cat) => {
-        const categoryName = cat.name.toLowerCase();
+        const categoryName = cat.name.toLowerCase().trim();
         return categoryName === normalizedKeyword;
       });
 
@@ -310,13 +294,19 @@ Tarih Çıkarma:
         return { categoryId: directMatch.id, categoryFound: true };
       }
 
-      // 2. Contains araması (kullanıcının özel kategorileri için - örn: "petrol")
+      // 2. Contains araması - keyword kategori adını içeriyor mu?
+      // Örn: "A harcaması" → normalized "a" → kategori "A" bulunur
       const containsMatch = allCategories.find((cat) => {
-        const categoryName = cat.name.toLowerCase();
-        return (
-          categoryName.includes(normalizedKeyword) ||
-          normalizedKeyword.includes(categoryName)
-        );
+        const categoryName = cat.name.toLowerCase().trim();
+        // Kategori adı keyword'ü içeriyor mu? (örn: "Market Alışverişi" kategori, "market" keyword)
+        if (categoryName.includes(normalizedKeyword)) {
+          return true;
+        }
+        // Keyword kategori adını içeriyor mu? (örn: "A harcaması" keyword → "a", kategori "A")
+        if (normalizedKeyword.includes(categoryName)) {
+          return true;
+        }
+        return false;
       });
 
       if (containsMatch) {
@@ -324,6 +314,37 @@ Tarih Çıkarma:
           `Category found (contains match): ${containsMatch.name} for keyword: ${categoryKeyword}`,
         );
         return { categoryId: containsMatch.id, categoryFound: true };
+      }
+
+      // 3. Kelime bazlı arama - keyword'ü kelimelere böl ve her kelimeyi kontrol et
+      // Örn: "A harcaması" → ["a"] → "A" kategorisi bulunur
+      const keywordWords = normalizedKeyword.split(/\s+/).filter(word => word.length > 0);
+      
+      for (const word of keywordWords) {
+        // Her kelimeyi kategori adlarıyla karşılaştır
+        const wordMatch = allCategories.find((cat) => {
+          const categoryName = cat.name.toLowerCase().trim();
+          // Tam eşleşme (örn: "a" === "a")
+          if (categoryName === word) {
+            return true;
+          }
+          // Kategori adı kelimeyi içeriyor mu? (örn: "Market Alışverişi" kategori, "market" kelimesi)
+          if (categoryName.includes(word)) {
+            return true;
+          }
+          // Kelime kategori adını içeriyor mu? (tek harf kategoriler için: "a" kelimesi, "A" kategori)
+          if (word.includes(categoryName)) {
+            return true;
+          }
+          return false;
+        });
+
+        if (wordMatch) {
+          this.logger.log(
+            `Category found (word match): ${wordMatch.name} for keyword: ${categoryKeyword} (matched word: ${word})`,
+          );
+          return { categoryId: wordMatch.id, categoryFound: true };
+        }
       }
     }
 
