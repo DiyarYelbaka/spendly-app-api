@@ -257,8 +257,8 @@ export class CategoriesService {
           skip,
           take: limit,
           orderBy: [
+            { createdAt: 'desc' },
             { sortOrder: 'asc' },
-            { createdAt: 'asc' },
           ],
           select: {
             id: true,

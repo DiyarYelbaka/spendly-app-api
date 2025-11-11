@@ -27,6 +27,7 @@ export interface DefaultCategory {
   icon: string;
   color: string;
   sortOrder: number;
+  keywords: string[]; // Sesli komut için eşleştirme keyword'leri (Türkçe/İngilizce)
 }
 
 /**
@@ -58,6 +59,7 @@ export const DEFAULT_CATEGORIES: DefaultCategory[] = [
     icon: '💰',
     color: '#00C853',
     sortOrder: 1,
+    keywords: ['maaş', 'maas', 'salary', 'maaşım', 'maasim', 'maaşımı', 'maasimi'],
   },
   {
     nameKey: 'investment',
@@ -65,6 +67,7 @@ export const DEFAULT_CATEGORIES: DefaultCategory[] = [
     icon: '📈',
     color: '#00E676',
     sortOrder: 2,
+    keywords: ['yatırım', 'yatirim', 'investment', 'sermaye'],
   },
   {
     nameKey: 'other_income',
@@ -72,6 +75,7 @@ export const DEFAULT_CATEGORIES: DefaultCategory[] = [
     icon: '💵',
     color: '#69F0AE',
     sortOrder: 3,
+    keywords: ['diğer gelir', 'diger gelir', 'other income', 'other_income'],
   },
   // Expense kategorileri
   {
@@ -80,6 +84,7 @@ export const DEFAULT_CATEGORIES: DefaultCategory[] = [
     icon: '🍔',
     color: '#FF5722',
     sortOrder: 1,
+    keywords: ['yemek', 'food', 'market', 'gıda', 'gida', 'restoran'],
   },
   {
     nameKey: 'transportation',
@@ -87,6 +92,7 @@ export const DEFAULT_CATEGORIES: DefaultCategory[] = [
     icon: '🚗',
     color: '#FF9800',
     sortOrder: 2,
+    keywords: ['ulaşım', 'ulasim', 'transportation', 'taşıma', 'tasima', 'araba', 'benzin'],
   },
   {
     nameKey: 'bills',
@@ -94,6 +100,7 @@ export const DEFAULT_CATEGORIES: DefaultCategory[] = [
     icon: '💡',
     color: '#FFC107',
     sortOrder: 3,
+    keywords: ['fatura', 'bills', 'faturalar', 'elektrik', 'su', 'internet'],
   },
   {
     nameKey: 'entertainment',
@@ -101,6 +108,7 @@ export const DEFAULT_CATEGORIES: DefaultCategory[] = [
     icon: '🎬',
     color: '#9C27B0',
     sortOrder: 4,
+    keywords: ['eğlence', 'eglence', 'entertainment', 'sinema', 'oyun'],
   },
   {
     nameKey: 'health',
@@ -108,6 +116,7 @@ export const DEFAULT_CATEGORIES: DefaultCategory[] = [
     icon: '🏥',
     color: '#F44336',
     sortOrder: 5,
+    keywords: ['sağlık', 'saglik', 'health', 'hastane', 'ilaç', 'ilac', 'doktor'],
   },
   {
     nameKey: 'other_expense',
@@ -115,6 +124,7 @@ export const DEFAULT_CATEGORIES: DefaultCategory[] = [
     icon: '📦',
     color: '#607D8B',
     sortOrder: 6,
+    keywords: ['diğer gider', 'diger gider', 'other expense', 'other_expense'],
   },
 ];
 

@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
 
 // PrismaService: Veritabanı işlemleri için
-import { PrismaService, ErrorHandler, ErrorCode } from '../core';
+import { PrismaService, ErrorHandler, ErrorCode, DEFAULT_CATEGORIES } from '../core';
 
 // DTO'lar
 import { ParsedTransactionDto } from './dto/voice-transaction.dto';
@@ -272,7 +272,7 @@ Kurallar:
         .replace(/\s+(harcaması|harcama|gideri|gider|geliri|gelir|alışverişi|alışveriş|işlemi|işlem|ödeme|ödemi)\s*$/i, '')
         .trim();
 
-      // Tüm kullanıcının kategorilerini al
+      // Tüm kullanıcının kategorilerini al (hem default hem de kullanıcının eklediği)
       const allCategories = await this.prisma.category.findMany({
         where: {
           userId,
@@ -280,6 +280,31 @@ Kurallar:
           isActive: true,
         },
       });
+
+      // 0. Önce default kategori keyword mapping'ini kontrol et
+      // DEFAULT_CATEGORIES'den keyword'leri kontrol et
+      for (const defaultCat of DEFAULT_CATEGORIES) {
+        if (defaultCat.type === type) {
+          // Normalize edilmiş keyword'ün default kategori keywords array'inde olup olmadığını kontrol et
+          const keywordMatch = defaultCat.keywords.some(
+            (keyword) => keyword.toLowerCase().trim() === normalizedKeyword,
+          );
+          
+          if (keywordMatch) {
+            // Bu nameKey'e sahip kategoriyi kullanıcının kategorilerinde bul
+            const defaultCategoryMatch = allCategories.find(
+              (cat) => cat.name.toLowerCase().trim() === defaultCat.nameKey.toLowerCase() && cat.isDefault,
+            );
+            
+            if (defaultCategoryMatch) {
+              this.logger.log(
+                `Category found (default keyword mapping): ${defaultCategoryMatch.name} for keyword: ${categoryKeyword}`,
+              );
+              return { categoryId: defaultCategoryMatch.id, categoryFound: true };
+            }
+          }
+        }
+      }
 
       // 1. Önce direkt eşleşme kontrolü
       const directMatch = allCategories.find((cat) => {
