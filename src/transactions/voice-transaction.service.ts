@@ -150,7 +150,7 @@ export class VoiceTransactionService {
     const model = this.configService.get<string>('openai.model', 'gpt-4o-mini');
     const timeout = this.configService.get<number>('openai.timeout', 5000);
 
-    const systemPrompt = `Sen bir finansal işlem parser'ısın. Kullanıcının Türkçe veya İngilizce konuşmasını analiz edip structured JSON'a çevir.
+    const systemPrompt = `Sen bir finansal işlem parser'ısın. Kullanıcının Türkçe veya İngilizce konuşmasını analiz edip structured JSON'a çevir. Günlük konuşma dilini, dolaylı anlatımları ve mizahi ifadeleri de anlayabilmelisin.
 
 Çıktı formatı (JSON object zorunlu):
 {
@@ -163,16 +163,41 @@ export class VoiceTransactionService {
   "confidence": number (0.0-1.0)
 }
 
-Kurallar:
-- Türkçe: "aldım", "kazandım", "maaş", "gelir" → income
-- İngilizce: "received", "earned", "salary", "income" → income
-- Türkçe: "yaptım", "harcadım", "ödeme", "gider" → expense
-- İngilizce: "spent", "paid", "payment", "expense" → expense
-- Tutarı mutlaka çıkar (sayı + "tl", "lira", "₺", "dollar", "$" gibi)
-- Kategori keyword'ü çıkar:
-  * Türkçe: "market", "yemek", "maaş", "yatırım", "ulaşım", "fatura", "eğlence", "sağlık"
-  * İngilizce: "grocery", "food", "salary", "investment", "transportation", "bills", "entertainment", "health"
-- Tarih varsa çıkar ("dün/yesterday", "bugün/today", "geçen hafta/last week" gibi) YYYY-MM-DD formatında
+GELİR (income) Tespiti:
+- Açık ifadeler: "aldım", "kazandım", "maaş", "gelir", "geldi", "ödemesi", "tahsilat"
+- Dolaylı ifadeler: "hesabıma yattı", "para geldi", "ödeme aldım", "bonus geldi", "prim aldım"
+- İngilizce: "received", "earned", "salary", "income", "got paid", "bonus received"
+
+GİDER (expense) Tespiti:
+- Açık ifadeler: "yaptım", "harcadım", "ödeme", "gider", "verdim", "ödedim", "çıktı"
+- Dolaylı/Kayıp ifadeler: "paramı çarptılar", "çaldılar", "götürdüler", "kaybettim", "uçtu gitti"
+- Zorla harcatma: "bana ödettirdi", "ödetmek zorunda kaldım", "masraflı oldu", "pahalıya patladı"
+- Mizahi/Günlük: "cüzdanımı boşalttı", "bütçemi salladı", "param bitti", "harcadım gitti"
+- İngilizce: "spent", "paid", "payment", "expense", "lost", "stolen", "had to pay"
+
+Tutar Çıkarma:
+- Mutlaka tutarı çıkar: sayı + para birimi ("500 tl", "250 lira", "100₺", "50 dollar", "$200")
+- Sayı formatları: "beş yüz", "500", "yarım bin" gibi ifadeleri anla
+- Para birimleri: "tl", "lira", "₺", "dollar", "$", "usd", "eur", "euro"
+
+Kategori Tespiti:
+- Türkçe: "market", "yemek", "restoran", "maaş", "yatırım", "ulaşım", "fatura", "eğlence", "sağlık", "giyim", "eğitim", "kira"
+- İngilizce: "grocery", "food", "restaurant", "salary", "investment", "transportation", "bills", "entertainment", "health", "clothing", "education", "rent"
+- Context'ten çıkar: "restorantta" → "food" veya "restaurant", "marketten" → "grocery" veya "food"
+
+Tarih Çıkarma:
+- Relatif tarihler: "dün/yesterday", "bugün/today", "yarın/tomorrow"
+- Geçmiş: "geçen hafta/last week", "geçen ay/last month", "2 gün önce/2 days ago"
+- Format: YYYY-MM-DD (bugünün tarihini baz al)
+
+Örnekler:
+- "500 tl paramı çarptılar" → {amount: 500, type: "expense", description: "paramı çarptılar", category_keyword: null, confidence: 0.9}
+- "kadının biri restorantta bana 500 tl ödettirdi" → {amount: 500, type: "expense", description: "restorantta ödettirdi", category_keyword: "restaurant", confidence: 0.95}
+- "dün 1000 lira kaybettim" → {amount: 1000, type: "expense", description: "kaybettim", date: "YYYY-MM-DD", confidence: 0.9}
+- "3000 maaş yattı" → {amount: 3000, type: "income", description: "maaş", category_keyword: "salary", confidence: 1.0}
+
+Önemli:
+- Context'i iyi anla: "bana ödettirdi" = expense, "bana verdi" = income
 - Belirsizse confidence düşük olsun (0.5 altı)
 - Sadece JSON döndür, başka açıklama yapma`;
 
@@ -260,37 +285,6 @@ Kurallar:
   ): Promise<{ categoryId: string; categoryFound: boolean }> {
     // Eğer kategori keyword varsa, kullanıcının kategorilerinde ara
     if (categoryKeyword && type) {
-      // Türkçe ve İngilizce keyword'leri İngilizce nameKey'lere map et
-      const keywordMapping: Record<string, string[]> = {
-        // Gelir kategorileri
-        'maaş': ['salary', 'maas'],
-        'maas': ['salary', 'maas'],
-        'salary': ['salary', 'maas'],
-        'yatırım': ['investment', 'yatirim'],
-        'yatirim': ['investment', 'yatirim'],
-        'investment': ['investment', 'yatirim'],
-        'gelir': ['income'],
-        'income': ['income'],
-        // Gider kategorileri
-        'yemek': ['food', 'yemek'],
-        'food': ['food', 'yemek'],
-        'market': ['food', 'market', 'grocery'],
-        'grocery': ['food', 'market', 'grocery'],
-        'ulaşım': ['transportation', 'ulasim', 'transport'],
-        'ulasim': ['transportation', 'ulasim', 'transport'],
-        'transportation': ['transportation', 'ulasim', 'transport'],
-        'transport': ['transportation', 'ulasim', 'transport'],
-        'fatura': ['bills', 'fatura', 'bill'],
-        'bills': ['bills', 'fatura', 'bill'],
-        'bill': ['bills', 'fatura', 'bill'],
-        'eğlence': ['entertainment', 'eglence'],
-        'eglence': ['entertainment', 'eglence'],
-        'entertainment': ['entertainment', 'eglence'],
-        'sağlık': ['health', 'saglik'],
-        'saglik': ['health', 'saglik'],
-        'health': ['health', 'saglik'],
-      };
-
       // Keyword'ü normalize et (küçük harf, trim)
       const normalizedKeyword = categoryKeyword.toLowerCase().trim();
 
@@ -303,7 +297,7 @@ Kurallar:
         },
       });
 
-      // 1. Önce direkt eşleşme kontrolü (hem Türkçe hem İngilizce için)
+      // 1. Önce direkt eşleşme kontrolü
       const directMatch = allCategories.find((cat) => {
         const categoryName = cat.name.toLowerCase();
         return categoryName === normalizedKeyword;
@@ -330,29 +324,6 @@ Kurallar:
           `Category found (contains match): ${containsMatch.name} for keyword: ${categoryKeyword}`,
         );
         return { categoryId: containsMatch.id, categoryFound: true };
-      }
-
-      // 3. Mapping'e göre arama (default kategoriler için)
-      const searchKeywords = keywordMapping[normalizedKeyword] || [normalizedKeyword];
-
-      // Keyword mapping'e göre eşleşen kategoriyi bul
-      for (const searchKeyword of searchKeywords) {
-        const category = allCategories.find((cat) => {
-          const categoryName = cat.name.toLowerCase();
-          // Hem exact match hem de contains kontrolü
-          return (
-            categoryName === searchKeyword ||
-            categoryName.includes(searchKeyword) ||
-            searchKeyword.includes(categoryName)
-          );
-        });
-
-        if (category) {
-          this.logger.log(
-            `Category found (mapping): ${category.name} for keyword: ${categoryKeyword}`,
-          );
-          return { categoryId: category.id, categoryFound: true };
-        }
       }
     }
 
