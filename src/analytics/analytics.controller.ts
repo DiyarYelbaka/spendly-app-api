@@ -53,60 +53,6 @@ export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService) {}
 
   /**
-   * getDashboard: Dashboard verileri endpoint'i
-   * 
-   * HTTP Metodu: GET
-   * URL: /api/analytics/dashboard
-   * 
-   * Bu endpoint, kullanıcının dashboard (kontrol paneli) için gerekli tüm analitik verilerini getirir.
-   * Dashboard, kullanıcının finansal durumunu özetleyen bir ekrandır.
-   * 
-   * @Get('dashboard'): Bu fonksiyonun GET /api/analytics/dashboard isteğine yanıt vereceğini belirtir
-   * 
-   * Parametreler:
-   * @CurrentUser() user: JWT token'dan alınan mevcut kullanıcı bilgisi
-   *   - user.id: Kullanıcının benzersiz ID'si
-   * 
-   * Dönüş Değeri:
-   * - 200 OK: Dashboard verileri başarıyla alındı
-   *   {
-   *     summary: {
-   *       total_income: 50000,      // Tüm zamanlar toplam gelir
-   *       total_expense: 30000,     // Tüm zamanlar toplam gider
-   *       net_balance: 20000,      // Net bakiye (gelir - gider)
-   *       netIncome: 20000,         // Frontend uyumu için camelCase
-   *       totalIncome: 50000,        // Frontend uyumu için camelCase
-   *       totalExpense: 30000        // Frontend uyumu için camelCase
-   *     },
-   *     monthly_trends: [           // Son 6 ayın aylık trendleri
-   *       { month: "2025-01", income: 5000, expense: 3000 },
-   *       { month: "2025-02", income: 6000, expense: 4000 },
-   *       ...
-   *     ],
-   *     category_breakdown: [       // Kategori bazında dağılım
-   *       { category: "Yemek", amount: 5000, percentage: 16.67, type: "expense" },
-   *       { category: "Maaş", amount: 20000, percentage: 40, type: "income" },
-   *       ...
-   *     ]
-   *   }
-   * 
-   * İş Akışı:
-   * 1. Tüm zamanlar toplam gelir ve gider hesaplanır
-   * 2. Net bakiye hesaplanır (gelir - gider)
-   * 3. Son 6 ayın aylık trendleri hesaplanır
-   * 4. Kategori bazında dağılım hesaplanır
-   * 5. Tüm veriler birleştirilip döndürülür
-   */
-  @Get('dashboard')
-  @ApiOperation({ summary: 'Dashboard verileri' })
-  @ApiResponse({ status: 200, description: 'Dashboard verileri alındı' })
-  async getDashboard(@CurrentUser() user: UserPayload) {
-    // Service'e dashboard verileri isteği gönderilir
-    // user.id: Sadece bu kullanıcının verilerini getir
-    return await this.analyticsService.getDashboard(user.id);
-  }
-
-  /**
    * getSummary: Finansal özet endpoint'i
    * 
    * HTTP Metodu: GET
@@ -126,12 +72,7 @@ export class AnalyticsController {
    *     current_balance: 20000,      // Mevcut bakiye (tüm zamanlar net bakiye)
    *     monthly_income: 5000,        // Bu ayki toplam gelir
    *     monthly_expense: 3000,      // Bu ayki toplam gider
-   *     savings_rate: 40,            // Tasarruf oranı (%)
-   *     top_categories: [            // En çok kullanılan kategoriler (top 5)
-   *       { name: "Yemek", amount: 5000, type: "expense" },
-   *       { name: "Maaş", amount: 20000, type: "income" },
-   *       ...
-   *     ]
+   *     savings_rate: 40            // Tasarruf oranı (%)
    *   }
    * 
    * İş Akışı:
@@ -139,8 +80,7 @@ export class AnalyticsController {
    * 2. Tüm zamanlar toplam gelir ve gider hesaplanır
    * 3. Mevcut bakiye hesaplanır (tüm zamanlar net bakiye)
    * 4. Tasarruf oranı hesaplanır ((aylık gelir - aylık gider) / aylık gelir * 100)
-   * 5. En çok kullanılan kategoriler bulunur (top 5)
-   * 6. Tüm veriler birleştirilip döndürülür
+   * 5. Tüm veriler birleştirilip döndürülür
    */
   @Get('summary')
   @ApiOperation({ summary: 'Finansal özet' })

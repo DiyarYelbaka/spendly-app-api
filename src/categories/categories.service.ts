@@ -504,16 +504,63 @@ export class CategoriesService {
         });
       }
 
-      // İşlem yapılmış kategoriler silinemez
+      // İşlem yapılmış kategoriler için: İşlemleri default kategoriye taşı ve kategoriyi sil
       if (category._count.transactions > 0) {
-        throw new ForbiddenException({
-          message: 'İşlem yapılmış kategoriler silinemez',
-          messageKey: 'CANNOT_DELETE_CATEGORY_WITH_TRANSACTIONS',
-          error: 'FORBIDDEN',
+        // Default kategoriyi bul (other_income veya other_expense)
+        const defaultCategoryName = category.type === 'income' ? 'other_income' : 'other_expense';
+        
+        const defaultCategory = await this.prisma.category.findFirst({
+          where: {
+            userId,
+            type: category.type,
+            name: defaultCategoryName,
+            isDefault: true,
+          },
         });
+
+        if (!defaultCategory) {
+          throw new BadRequestException({
+            message: 'Varsayılan kategori bulunamadı',
+            messageKey: 'DEFAULT_CATEGORY_NOT_FOUND',
+            error: 'BAD_REQUEST',
+          });
+        }
+
+        // Transaction kullanarak atomik işlem yap
+        // Ya hepsi başarılı olur ya da hiçbiri olmaz
+        await this.prisma.$transaction(async (tx) => {
+          // 1. Tüm işlemleri default kategoriye taşı (updateMany - tek sorgu ile toplu güncelleme)
+          const updateResult = await tx.transaction.updateMany({
+            where: {
+              categoryId: id,
+              userId, // Güvenlik: Sadece kullanıcının kendi işlemlerini güncelle
+            },
+            data: {
+              categoryId: defaultCategory.id,
+            },
+          });
+
+          this.logger.log(
+            `Moved ${updateResult.count} transaction(s) from category "${category.name}" to "${defaultCategory.name}"`,
+          );
+
+          // 2. Kategoriyi soft delete yap
+          await tx.category.update({
+            where: { id },
+            data: {
+              isActive: false,
+            },
+          });
+        });
+
+        return {
+          message: 'Kategori başarıyla silindi',
+          movedTransactions: category._count.transactions,
+          movedToCategory: defaultCategory.name,
+        };
       }
 
-      // Soft delete - isActive = false
+      // İşlem yoksa direkt soft delete
       await this.prisma.category.update({
         where: { id },
         data: {
