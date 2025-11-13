@@ -2,7 +2,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 // class-validator: Gelen verilerin doğruluğunu kontrol etmek için kullanılan kütüphane
-import { IsOptional, IsString, IsEnum, IsUUID, IsDateString } from 'class-validator';
+import { IsOptional, IsString, IsEnum, IsUUID, IsDateString, IsIn } from 'class-validator';
 
 // PaginationQueryDto: Sayfalama (pagination) için kullanılan temel sınıf
 import { PaginationQueryDto } from '../../core';
@@ -134,5 +134,57 @@ export class TransactionQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsString({ message: 'Arama terimi string (metin) olmalıdır' })
   search?: string;
+
+  /**
+   * sort_by: Sıralama alanı
+   * 
+   * İşlemlerin hangi alana göre sıralanacağını belirtir.
+   * 
+   * @IsOptional(): Bu alanın gönderilmesi zorunlu değildir
+   * @IsIn(): Bu alan sadece belirtilen değerlerden biri olabilir
+   *   - 'created_at': Oluşturulma tarihine göre sırala
+   *   - 'amount': Fiyata göre sırala
+   * 
+   * Örnek: ?sort_by=created_at (oluşturulma tarihine göre sırala)
+   * Örnek: ?sort_by=amount (fiyata göre sırala)
+   * 
+   * Varsayılan: Eğer gönderilmezse, 'created_at' kullanılır
+   */
+  @ApiPropertyOptional({
+    description: 'Sıralama alanı (created_at veya amount)',
+    enum: ['created_at', 'amount'],
+    example: 'created_at',
+  })
+  @IsOptional()
+  @IsIn(['created_at', 'amount'], {
+    message: 'Sıralama alanı created_at veya amount olmalıdır',
+  })
+  sort_by?: 'created_at' | 'amount';
+
+  /**
+   * sort_order: Sıralama yönü
+   * 
+   * İşlemlerin artan (asc) mı azalan (desc) mı sıralanacağını belirtir.
+   * 
+   * @IsOptional(): Bu alanın gönderilmesi zorunlu değildir
+   * @IsIn(): Bu alan sadece belirtilen değerlerden biri olabilir
+   *   - 'asc': Artan sıralama (küçükten büyüğe)
+   *   - 'desc': Azalan sıralama (büyükten küçüğe)
+   * 
+   * Örnek: ?sort_order=asc (artan sıralama)
+   * Örnek: ?sort_order=desc (azalan sıralama)
+   * 
+   * Varsayılan: Eğer gönderilmezse, 'desc' kullanılır
+   */
+  @ApiPropertyOptional({
+    description: 'Sıralama yönü (asc veya desc)',
+    enum: ['asc', 'desc'],
+    example: 'desc',
+  })
+  @IsOptional()
+  @IsIn(['asc', 'desc'], {
+    message: 'Sıralama yönü asc veya desc olmalıdır',
+  })
+  sort_order?: 'asc' | 'desc';
 }
 

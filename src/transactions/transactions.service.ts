@@ -402,6 +402,30 @@ export class TransactionsService {
       }
 
       /**
+       * ADIM 2.5: Sıralama Kriterlerini Belirle
+       * 
+       * sort_by: Hangi alana göre sıralanacağı (created_at veya amount)
+       * sort_order: Sıralama yönü (asc veya desc)
+       * 
+       * Varsayılan: Eğer belirtilmezse, createdAt: 'desc' kullanılır
+       */
+      const sortBy = query.sort_by || 'created_at';
+      const sortOrder = query.sort_order || 'desc';
+
+      // Prisma için orderBy nesnesi oluştur
+      // created_at → createdAt (Prisma camelCase kullanır)
+      // amount → amount (Prisma'da aynı)
+      const orderBy: any = {};
+      if (sortBy === 'created_at') {
+        orderBy.createdAt = sortOrder;
+      } else if (sortBy === 'amount') {
+        orderBy.amount = sortOrder;
+      } else {
+        // Varsayılan: createdAt desc
+        orderBy.createdAt = 'desc';
+      }
+
+      /**
        * ADIM 3: İşlemleri ve Toplam Sayıyı Paralel Olarak Getir
        * 
        * Promise.all(): İki sorguyu paralel olarak çalıştırır
@@ -411,7 +435,7 @@ export class TransactionsService {
        *   - where: Filtreleme kriterleri
        *   - skip: Atlanacak kayıt sayısı (sayfalama için)
        *   - take: Alınacak kayıt sayısı (sayfalama için)
-       *   - orderBy: Sıralama kriteri (createdAt: 'desc' - Oluşturulma tarihine göre azalan sırada, en yeni oluşturulanlar en üstte)
+       *   - orderBy: Sıralama kriteri (dinamik olarak belirlenir)
        *   - include: İlişkili verileri de getir (kategori bilgileri)
        * 
        * count: Toplam kayıt sayısını hesaplar
@@ -425,9 +449,7 @@ export class TransactionsService {
           where,
           skip,
           take: limit,
-          orderBy: {
-            createdAt: 'desc', // En yeni oluşturulanlar en üstte
-          },
+          orderBy,
           include: {
             category: {
               select: {

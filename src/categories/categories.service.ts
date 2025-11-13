@@ -241,11 +241,55 @@ export class CategoriesService {
       }
 
       // Search filtresi
-      if (query.search) {
-        where.name = {
-          contains: query.search,
-          mode: 'insensitive',
-        };
+      // Boş string kontrolü: Eğer search boş string veya sadece boşluk ise, filtreleme yapma
+      if (query.search && query.search.trim().length > 0) {
+        const searchTerm = query.search.trim().toLowerCase();
+        
+        // Default kategoriler için keywords'lere göre eşleşen nameKey'leri bul
+        const matchingDefaultCategoryKeys: string[] = [];
+        for (const defaultCat of DEFAULT_CATEGORIES) {
+          // Type filtresi varsa, sadece o tipteki kategorilere bak
+          if (query.type && defaultCat.type !== query.type) {
+            continue;
+          }
+          
+          // Keywords'lerde arama terimi var mı kontrol et
+          const keywordMatch = defaultCat.keywords.some(
+            (keyword) => keyword.toLowerCase().includes(searchTerm) || searchTerm.includes(keyword.toLowerCase())
+          );
+          
+          // NameKey'de de arama terimi var mı kontrol et
+          const nameKeyMatch = defaultCat.nameKey.toLowerCase().includes(searchTerm) || 
+                               searchTerm.includes(defaultCat.nameKey.toLowerCase());
+          
+          if (keywordMatch || nameKeyMatch) {
+            matchingDefaultCategoryKeys.push(defaultCat.nameKey);
+          }
+        }
+        
+        // Arama kriteri: Hem name'e hem de default kategori nameKey'lerine göre arama yap
+        if (matchingDefaultCategoryKeys.length > 0) {
+          where.OR = [
+            {
+              name: {
+                contains: query.search.trim(),
+                mode: 'insensitive',
+              },
+            },
+            {
+              name: {
+                in: matchingDefaultCategoryKeys,
+              },
+              isDefault: true,
+            },
+          ];
+        } else {
+          // Eğer default kategori eşleşmesi yoksa, sadece name'e göre ara
+          where.name = {
+            contains: query.search.trim(),
+            mode: 'insensitive',
+          };
+        }
       }
 
       // Include defaults kontrolü
