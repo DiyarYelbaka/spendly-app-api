@@ -350,13 +350,43 @@ export class AuthService {
       });
 
       // E-posta gönder
-      await this.emailService.sendPasswordResetCode(dto.email, code);
+      try {
+        await this.emailService.sendPasswordResetCode(dto.email, code);
+      } catch (emailError) {
+        // Email hatası durumunda kaydı sil (kullanıcı tekrar deneyebilsin)
+        await this.prisma.passwordReset.deleteMany({
+          where: { email: dto.email, code },
+        });
+        
+        const errorMessage = emailError instanceof Error ? emailError.message : 'Email gönderilemedi';
+        this.logger.error(`Email sending failed for ${dto.email}`, {
+          error: emailError,
+          message: errorMessage,
+        });
+        
+        // Email hatasını özel olarak işle
+        throw new HttpException(
+          {
+            message: errorMessage.includes('yapılandırılmamış') || errorMessage.includes('kimlik doğrulama')
+              ? errorMessage
+              : 'E-posta gönderilemedi. Lütfen daha sonra tekrar deneyin.',
+            messageKey: 'EMAIL_SEND_FAILED',
+            error: 'EMAIL_ERROR',
+          },
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
 
       return {
         message: 'Doğrulama kodu e-posta adresinize gönderildi',
         expiresIn: 15,
       };
     } catch (error) {
+      // HttpException ise direkt fırlat (yukarıdaki email hatası gibi)
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      
       ErrorHandler.handleError(
         error,
         this.logger,

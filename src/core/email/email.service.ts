@@ -23,8 +23,23 @@ export class EmailService {
 
   async sendPasswordResetCode(email: string, code: string): Promise<void> {
     try {
+      // Environment variable kontrolü
+      const emailFrom = this.configService.get<string>('EMAIL_FROM');
+      const emailUser = this.configService.get<string>('EMAIL_USER');
+      const mailKey = this.configService.get<string>('MAIL_KEY');
+
+      if (!emailFrom || !emailUser || !mailKey) {
+        const missingVars = [];
+        if (!emailFrom) missingVars.push('EMAIL_FROM');
+        if (!emailUser) missingVars.push('EMAIL_USER');
+        if (!mailKey) missingVars.push('MAIL_KEY');
+        
+        this.logger.error(`Missing email configuration: ${missingVars.join(', ')}`);
+        throw new Error(`Email yapılandırması eksik: ${missingVars.join(', ')}`);
+      }
+
       const mailOptions = {
-        from: `"${this.configService.get<string>('EMAIL_FROM_NAME', 'Spendly')}" <${this.configService.get<string>('EMAIL_FROM')}>`,
+        from: `"${this.configService.get<string>('EMAIL_FROM_NAME', 'Spendly')}" <${emailFrom}>`,
         to: email,
         subject: 'Şifre Sıfırlama Kodu - Spendly',
         html: this.getPasswordResetTemplate(code),
@@ -33,7 +48,24 @@ export class EmailService {
       await this.transporter.sendMail(mailOptions);
       this.logger.log(`Password reset code sent to ${email}`);
     } catch (error) {
-      this.logger.error(`Failed to send password reset code to ${email}`, error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : String(error);
+      
+      this.logger.error(`Failed to send password reset code to ${email}`, {
+        message: errorMessage,
+        stack: errorStack,
+        error: error,
+      });
+      
+      // Daha anlamlı hata mesajı
+      if (errorMessage.includes('Email yapılandırması eksik')) {
+        throw new Error('Email servisi yapılandırılmamış. Lütfen sistem yöneticisine başvurun.');
+      }
+      
+      if (errorMessage.includes('Invalid login') || errorMessage.includes('authentication failed')) {
+        throw new Error('Email kimlik doğrulama hatası. Lütfen sistem yöneticisine başvurun.');
+      }
+      
       throw error;
     }
   }
