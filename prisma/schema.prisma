@@ -61,3 +61,19 @@ model Transaction {
   @@index([categoryId])
   @@map("transactions")
 }
+
+model PasswordReset {
+  id        String   @id @default(uuid())
+  email     String
+  code      String   @db.VarChar(6)
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  isUsed    Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([email])
+  @@index([email, code])
+  @@index([expiresAt])
+  @@map("password_resets")
+}

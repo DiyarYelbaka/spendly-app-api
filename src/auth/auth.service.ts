@@ -5,14 +5,21 @@ import {
   BadRequestException,
   UnprocessableEntityException,
   Logger,
+  NotFoundException,
+  GoneException,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
-import { PrismaService } from '../core';
+import { PrismaService, EmailService } from '../core';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { VerifyCodeDto } from './dto/verify-code.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ErrorHandler, DEFAULT_CATEGORIES, CategoryType } from '../core';
 
 @Injectable()
@@ -23,6 +30,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private emailService: EmailService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -270,6 +278,323 @@ export class AuthService {
         'getProfile',
         'Kullanıcı profili getirilirken bir hata oluştu',
       );
+    }
+  }
+
+  async forgotPassword(dto: ForgotPasswordDto): Promise<{ message: string; expiresIn: number }> {
+    try {
+      // Kullanıcı var mı kontrol et (güvenlik için belirsiz mesaj)
+      const user = await this.prisma.user.findUnique({
+        where: { email: dto.email },
+      });
+
+      // Güvenlik: Kullanıcı yoksa bile başarı mesajı döndür
+      if (!user) {
+        // Log'la ama kullanıcıya belirsiz mesaj göster
+        this.logger.warn(`Password reset requested for non-existent email: ${dto.email}`);
+        return {
+          message: 'Doğrulama kodu e-posta adresinize gönderildi',
+          expiresIn: 15,
+        };
+      }
+
+      // Rate limiting kontrolü (son 5 dakikada istek var mı?)
+      const rateLimitMinutes = this.configService.get<number>('PASSWORD_RESET_RATE_LIMIT_MINUTES', 5);
+      const rateLimitTime = new Date();
+      rateLimitTime.setMinutes(rateLimitTime.getMinutes() - rateLimitMinutes);
+
+      const recentRequest = await this.prisma.passwordReset.findFirst({
+        where: {
+          email: dto.email,
+          createdAt: { gte: rateLimitTime },
+          isUsed: false,
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (recentRequest) {
+        throw new HttpException(
+          {
+            message: `Lütfen ${rateLimitMinutes} dakika sonra tekrar deneyin`,
+            messageKey: 'TOO_MANY_REQUESTS',
+            error: 'TOO_MANY_REQUESTS',
+          },
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+
+      // Süresi dolmuş kodları temizle
+      await this.cleanupExpiredCodes(dto.email);
+
+      // 6 haneli kod oluştur
+      const code = this.generateResetCode();
+
+      // Kod geçerlilik süresi (15 dakika)
+      const expiresIn = this.configService.get<string>('PASSWORD_RESET_CODE_EXPIRES_IN', '15m');
+      const expiresAt = new Date();
+      if (expiresIn.endsWith('m')) {
+        expiresAt.setMinutes(expiresAt.getMinutes() + parseInt(expiresIn));
+      } else if (expiresIn.endsWith('h')) {
+        expiresAt.setHours(expiresAt.getHours() + parseInt(expiresIn));
+      }
+
+      // PasswordReset kaydı oluştur
+      await this.prisma.passwordReset.create({
+        data: {
+          email: dto.email,
+          code,
+          expiresAt,
+          attempts: 0,
+          isUsed: false,
+        },
+      });
+
+      // E-posta gönder
+      await this.emailService.sendPasswordResetCode(dto.email, code);
+
+      return {
+        message: 'Doğrulama kodu e-posta adresinize gönderildi',
+        expiresIn: 15,
+      };
+    } catch (error) {
+      ErrorHandler.handleError(
+        error,
+        this.logger,
+        'forgotPassword',
+        'Şifre sıfırlama kodu gönderilirken bir hata oluştu',
+      );
+    }
+  }
+
+  async verifyResetCode(dto: VerifyCodeDto): Promise<{ message: string; token: string }> {
+    try {
+      // Kod kaydını bul
+      const passwordReset = await this.prisma.passwordReset.findFirst({
+        where: {
+          email: dto.email,
+          code: dto.code,
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (!passwordReset) {
+        throw new NotFoundException({
+          message: 'Geçersiz kod',
+          messageKey: 'INVALID_RESET_CODE',
+          error: 'NOT_FOUND',
+        });
+      }
+
+      // Kod kullanılmış mı?
+      if (passwordReset.isUsed) {
+        throw new GoneException({
+          message: 'Bu kod zaten kullanılmış',
+          messageKey: 'CODE_ALREADY_USED',
+          error: 'GONE',
+        });
+      }
+
+      // Kod süresi dolmuş mu?
+      if (new Date() > passwordReset.expiresAt) {
+        throw new NotFoundException({
+          message: 'Kod süresi dolmuş',
+          messageKey: 'CODE_EXPIRED',
+          error: 'NOT_FOUND',
+        });
+      }
+
+      // Deneme sayısı kontrolü
+      const maxAttempts = this.configService.get<number>('PASSWORD_RESET_MAX_ATTEMPTS', 5);
+      if (passwordReset.attempts >= maxAttempts) {
+        throw new HttpException(
+          {
+            message: 'Çok fazla yanlış deneme. Lütfen yeni kod isteyin',
+            messageKey: 'TOO_MANY_ATTEMPTS',
+            error: 'TOO_MANY_REQUESTS',
+          },
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+
+      // Kodu doğrula - deneme sayısını sıfırla
+      await this.prisma.passwordReset.update({
+        where: { id: passwordReset.id },
+        data: { attempts: 0 },
+      });
+
+      // Geçici reset token oluştur (JWT, 10 dakika)
+      const resetToken = this.jwtService.sign(
+        { 
+          sub: passwordReset.id, 
+          email: dto.email,
+          type: 'password_reset' 
+        },
+        {
+          secret: this.configService.get<string>('JWT_SECRET') || 'your-super-secret-jwt-key-change-this-in-production',
+          expiresIn: '10m',
+        },
+      );
+
+      return {
+        message: 'Kod doğrulandı',
+        token: resetToken,
+      };
+    } catch (error) {
+      // Yanlış kod denemesi - attempts artır
+      if (error instanceof NotFoundException) {
+        await this.incrementAttempts(dto.email, dto.code);
+      }
+      ErrorHandler.handleError(
+        error,
+        this.logger,
+        'verifyResetCode',
+        'Kod doğrulanırken bir hata oluştu',
+      );
+    }
+  }
+
+  async resetPassword(dto: ResetPasswordDto): Promise<{ message: string }> {
+    try {
+      // Reset token'ı doğrula
+      let payload: any;
+      try {
+        payload = this.jwtService.verify(dto.token, {
+          secret: this.configService.get<string>('JWT_SECRET') || 'your-super-secret-jwt-key-change-this-in-production',
+        });
+      } catch (error) {
+        throw new UnauthorizedException({
+          message: 'Geçersiz veya süresi dolmuş token',
+          messageKey: 'INVALID_RESET_TOKEN',
+          error: 'UNAUTHORIZED',
+        });
+      }
+
+      // Token tipi kontrolü
+      if (payload.type !== 'password_reset') {
+        throw new UnauthorizedException({
+          message: 'Geçersiz token tipi',
+          messageKey: 'INVALID_RESET_TOKEN',
+          error: 'UNAUTHORIZED',
+        });
+      }
+
+      // PasswordReset kaydını bul
+      const passwordReset = await this.prisma.passwordReset.findUnique({
+        where: { id: payload.sub },
+      });
+
+      if (!passwordReset) {
+        throw new NotFoundException({
+          message: 'Token bulunamadı',
+          messageKey: 'RESET_TOKEN_NOT_FOUND',
+          error: 'NOT_FOUND',
+        });
+      }
+
+      // Kod kullanılmış mı?
+      if (passwordReset.isUsed) {
+        throw new GoneException({
+          message: 'Bu token zaten kullanılmış',
+          messageKey: 'TOKEN_ALREADY_USED',
+          error: 'GONE',
+        });
+      }
+
+      // Şifreler eşleşiyor mu?
+      if (dto.newPassword !== dto.confirmPassword) {
+        throw new BadRequestException({
+          message: 'Şifreler eşleşmiyor',
+          messageKey: 'PASSWORD_MISMATCH',
+          error: 'BAD_REQUEST',
+          fields: {
+            confirmPassword: [
+              {
+                message: 'Şifreler eşleşmiyor',
+                value: dto.confirmPassword,
+                location: 'body',
+              },
+            ],
+          },
+        });
+      }
+
+      // Kullanıcıyı bul
+      const user = await this.prisma.user.findUnique({
+        where: { email: passwordReset.email },
+      });
+
+      if (!user) {
+        throw new NotFoundException({
+          message: 'Kullanıcı bulunamadı',
+          messageKey: 'USER_NOT_FOUND',
+          error: 'NOT_FOUND',
+        });
+      }
+
+      // Yeni şifreyi hash'le
+      const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
+
+      // Kullanıcı şifresini güncelle ve PasswordReset kaydını işaretle
+      await this.prisma.$transaction(async (tx: any) => {
+        await tx.user.update({
+          where: { id: user.id },
+          data: { password: hashedPassword },
+        });
+
+        await tx.passwordReset.update({
+          where: { id: passwordReset.id },
+          data: { isUsed: true },
+        });
+      });
+
+      return {
+        message: 'Şifre başarıyla güncellendi',
+      };
+    } catch (error) {
+      ErrorHandler.handleError(
+        error,
+        this.logger,
+        'resetPassword',
+        'Şifre sıfırlanırken bir hata oluştu',
+      );
+    }
+  }
+
+  private generateResetCode(): string {
+    // 6 haneli rastgele sayı (100000-999999)
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  }
+
+  private async cleanupExpiredCodes(email: string): Promise<void> {
+    // Süresi dolmuş veya çok fazla deneme yapılmış kodları sil
+    const maxAttempts = parseInt(
+      this.configService.get<string>('PASSWORD_RESET_MAX_ATTEMPTS', '5'),
+      10,
+    );
+    await this.prisma.passwordReset.deleteMany({
+      where: {
+        email,
+        OR: [
+          { expiresAt: { lt: new Date() } },
+          { isUsed: true },
+          { attempts: { gte: maxAttempts } },
+        ],
+      },
+    });
+  }
+
+  private async incrementAttempts(email: string, code: string): Promise<void> {
+    // Yanlış kod denemesi - attempts artır
+    const passwordReset = await this.prisma.passwordReset.findFirst({
+      where: { email, code },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (passwordReset && !passwordReset.isUsed) {
+      await this.prisma.passwordReset.update({
+        where: { id: passwordReset.id },
+        data: { attempts: passwordReset.attempts + 1 },
+      });
     }
   }
 

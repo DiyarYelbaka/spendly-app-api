@@ -102,3 +102,11 @@ export * from './constants/category.constants';
  */
 export * from './middleware/jwt-user.middleware';
 
+/**
+ * Email (E-posta)
+ * 
+ * E-posta gönderme servisi
+ */
+export * from './email/email.module';
+export * from './email/email.service';
+

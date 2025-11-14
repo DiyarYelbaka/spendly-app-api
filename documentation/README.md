@@ -16,6 +16,9 @@ Bu dokümantasyon, Spendly API backend projesinin tamamını anlamak için gerek
 - **[AUTHENTICATION.md](./AUTHENTICATION.md)** - Kimlik doğrulama sistemi
 - **[ERRORS.md](./ERRORS.md)** - Hata yönetimi ve hata kodları
 
+### 📋 Geliştirme Planları
+- **[PASSWORD_RESET_PLAN.md](./PASSWORD_RESET_PLAN.md)** - Şifremi Unuttum özelliği implementasyon planı
+
 ## 🎯 Proje Hakkında
 
 **Spendly API**, gelir-gider takip mobil uygulaması için geliştirilmiş bir REST API backend'idir. NestJS framework'ü kullanılarak TypeScript ile yazılmıştır.

@@ -20,7 +20,8 @@ import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
 // PrismaModule: Veritabanı işlemleri için
-import { PrismaModule } from '../core';
+// EmailModule: E-posta gönderme işlemleri için
+import { PrismaModule, EmailModule } from '../core';
 
 /**
  * AuthModule Sınıfı
@@ -52,6 +53,7 @@ import { PrismaModule } from '../core';
    */
   imports: [
     PrismaModule,
+    EmailModule,
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],

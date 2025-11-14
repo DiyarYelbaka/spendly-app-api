@@ -17,6 +17,9 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { VerifyCodeDto } from './dto/verify-code.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 // JwtAuthGuard: JWT token kontrolü yapan guard (koruyucu)
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -257,6 +260,128 @@ export class AuthController {
     // Service'e profil bilgisi isteği gönderilir
     // user.id: JWT token'dan alınan kullanıcı ID'si
     return await this.authService.getProfile(user.id);
+  }
+
+  /**
+   * forgotPassword: Şifremi unuttum endpoint'i
+   * 
+   * HTTP Metodu: POST
+   * URL: /api/auth/forgot-password
+   * 
+   * Bu endpoint, kullanıcının e-posta adresine şifre sıfırlama kodu gönderir.
+   * 
+   * @Post('forgot-password'): Bu fonksiyonun POST /api/auth/forgot-password isteğine yanıt vereceğini belirtir
+   * 
+   * Parametreler:
+   * @Body() dto: Request body'den gelen e-posta adresi (ForgotPasswordDto formatında)
+   *   - email: Kullanıcı email adresi (zorunlu)
+   * 
+   * Dönüş Değeri:
+   * - 200 OK: Kod gönderildi
+   *   {
+   *     message: "Doğrulama kodu e-posta adresinize gönderildi",
+   *     expiresIn: 15
+   *   }
+   * - 429 Too Many Requests: Çok fazla istek (rate limiting)
+   * 
+   * İş Akışı:
+   * 1. E-posta adresi kontrol edilir
+   * 2. Rate limiting kontrolü yapılır
+   * 3. 6 haneli kod oluşturulur
+   * 4. Kod veritabanına kaydedilir
+   * 5. E-posta gönderilir
+   */
+  @Post('forgot-password')
+  @ApiOperation({ summary: 'Şifremi unuttum - Kod gönderme' })
+  @ApiResponse({ status: 200, description: 'Doğrulama kodu gönderildi' })
+  @ApiResponse({ status: 429, description: 'Çok fazla istek' })
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return await this.authService.forgotPassword(dto);
+  }
+
+  /**
+   * verifyResetCode: Doğrulama kodu kontrolü endpoint'i
+   * 
+   * HTTP Metodu: POST
+   * URL: /api/auth/verify-reset-code
+   * 
+   * Bu endpoint, kullanıcının girdiği doğrulama kodunu kontrol eder.
+   * 
+   * @Post('verify-reset-code'): Bu fonksiyonun POST /api/auth/verify-reset-code isteğine yanıt vereceğini belirtir
+   * 
+   * Parametreler:
+   * @Body() dto: Request body'den gelen kod bilgileri (VerifyCodeDto formatında)
+   *   - email: Kullanıcı email adresi (zorunlu)
+   *   - code: 6 haneli doğrulama kodu (zorunlu)
+   * 
+   * Dönüş Değeri:
+   * - 200 OK: Kod doğrulandı
+   *   {
+   *     message: "Kod doğrulandı",
+   *     token: "reset-token-uuid"
+   *   }
+   * - 404 Not Found: Geçersiz kod veya süresi dolmuş
+   * - 410 Gone: Kod zaten kullanılmış
+   * - 429 Too Many Requests: Çok fazla deneme
+   * 
+   * İş Akışı:
+   * 1. Kod kaydı bulunur
+   * 2. Kod geçerliliği kontrol edilir (süre, kullanılmış mı?)
+   * 3. Deneme sayısı kontrol edilir
+   * 4. Kod doğrulanır
+   * 5. Geçici reset token oluşturulur
+   */
+  @Post('verify-reset-code')
+  @ApiOperation({ summary: 'Doğrulama kodu kontrolü' })
+  @ApiResponse({ status: 200, description: 'Kod doğrulandı' })
+  @ApiResponse({ status: 404, description: 'Geçersiz kod veya süresi dolmuş' })
+  @ApiResponse({ status: 410, description: 'Kod zaten kullanılmış' })
+  @ApiResponse({ status: 429, description: 'Çok fazla deneme' })
+  async verifyResetCode(@Body() dto: VerifyCodeDto) {
+    return await this.authService.verifyResetCode(dto);
+  }
+
+  /**
+   * resetPassword: Şifre sıfırlama endpoint'i
+   * 
+   * HTTP Metodu: POST
+   * URL: /api/auth/reset-password
+   * 
+   * Bu endpoint, kullanıcının şifresini sıfırlar.
+   * 
+   * @Post('reset-password'): Bu fonksiyonun POST /api/auth/reset-password isteğine yanıt vereceğini belirtir
+   * 
+   * Parametreler:
+   * @Body() dto: Request body'den gelen şifre bilgileri (ResetPasswordDto formatında)
+   *   - token: Reset token (zorunlu)
+   *   - newPassword: Yeni şifre (zorunlu, min 6 karakter)
+   *   - confirmPassword: Şifre tekrarı (zorunlu, newPassword ile eşleşmeli)
+   * 
+   * Dönüş Değeri:
+   * - 200 OK: Şifre güncellendi
+   *   {
+   *     message: "Şifre başarıyla güncellendi"
+   *   }
+   * - 400 Bad Request: Şifreler eşleşmiyor
+   * - 401 Unauthorized: Geçersiz veya süresi dolmuş token
+   * - 410 Gone: Token zaten kullanılmış
+   * 
+   * İş Akışı:
+   * 1. Reset token doğrulanır
+   * 2. PasswordReset kaydı bulunur
+   * 3. Şifreler eşleşme kontrolü yapılır
+   * 4. Yeni şifre hash'lenir
+   * 5. Kullanıcı şifresi güncellenir
+   * 6. PasswordReset kaydı işaretlenir
+   */
+  @Post('reset-password')
+  @ApiOperation({ summary: 'Şifre sıfırlama' })
+  @ApiResponse({ status: 200, description: 'Şifre başarıyla güncellendi' })
+  @ApiResponse({ status: 400, description: 'Şifreler eşleşmiyor' })
+  @ApiResponse({ status: 401, description: 'Geçersiz veya süresi dolmuş token' })
+  @ApiResponse({ status: 410, description: 'Token zaten kullanılmış' })
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return await this.authService.resetPassword(dto);
   }
 }
 
