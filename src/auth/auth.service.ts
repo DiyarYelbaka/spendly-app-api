@@ -283,20 +283,24 @@ export class AuthService {
 
   async forgotPassword(dto: ForgotPasswordDto): Promise<{ message: string; expiresIn: number }> {
     try {
-      // Kullanıcı var mı kontrol et (güvenlik için belirsiz mesaj)
+      // ÖNEMLİ: Email göndermeden önce kullanıcı kontrolü yapılıyor
+      // Bu, güvenlik için kritik - sadece kayıtlı kullanıcılara email gönderilmeli
       const user = await this.prisma.user.findUnique({
         where: { email: dto.email },
       });
 
-      // Güvenlik: Kullanıcı yoksa bile başarı mesajı döndür
+      // Güvenlik: Kullanıcı yoksa email gönderme
+      // Email enumeration attack'ini önlemek için belirsiz mesaj döndür
       if (!user) {
-        // Log'la ama kullanıcıya belirsiz mesaj göster
         this.logger.warn(`Password reset requested for non-existent email: ${dto.email}`);
+        // Email göndermeden direkt return et (güvenlik için)
         return {
           message: 'Doğrulama kodu e-posta adresinize gönderildi',
           expiresIn: 15,
         };
       }
+
+      // Kullanıcı varsa devam et - email gönderilecek
 
       // Rate limiting kontrolü (son 5 dakikada istek var mı?)
       // Hassas olmayan değer appConfig.js'den alınır
