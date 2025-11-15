@@ -10,10 +10,14 @@ export class EmailService {
 
   constructor(private configService: ConfigService) {
     // Gmail SMTP yapılandırması
+    // Hassas olmayan değerler (host, port) appConfig.js'den alınır
+    // Hassas değerler (user, pass) .env dosyasından alınır
+    const appConfig = require('../../../appConfig.js');
+    
     this.transporter = nodemailer.createTransport({
-      host: this.configService.get<string>('SMTP_HOST', 'smtp.gmail.com'),
-      port: this.configService.get<number>('SMTP_PORT', 587),
-      secure: false, // true for 465, false for other ports
+      host: this.configService.get<string>('SMTP_HOST') || appConfig.email.smtp.host,
+      port: this.configService.get<number>('SMTP_PORT') || appConfig.email.smtp.port,
+      secure: appConfig.email.smtp.secure, // true for 465, false for other ports
       auth: {
         user: this.configService.get<string>('EMAIL_USER'),
         pass: this.configService.get<string>('MAIL_KEY'), // App Password (boşluklar dahil)
@@ -38,8 +42,12 @@ export class EmailService {
         throw new Error(`Email yapılandırması eksik: ${missingVars.join(', ')}`);
       }
 
+      // Hassas olmayan değerler (fromName) appConfig.js'den alınır
+      const appConfig = require('../../../appConfig.js');
+      const emailFromName = this.configService.get<string>('EMAIL_FROM_NAME') || appConfig.email.fromName;
+
       const mailOptions = {
-        from: `"${this.configService.get<string>('EMAIL_FROM_NAME', 'Spendly')}" <${emailFrom}>`,
+        from: `"${emailFromName}" <${emailFrom}>`,
         to: email,
         subject: 'Şifre Sıfırlama Kodu - Spendly',
         html: this.getPasswordResetTemplate(code),

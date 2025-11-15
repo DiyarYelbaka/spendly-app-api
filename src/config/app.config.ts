@@ -1,24 +1,30 @@
 /**
  * Application Configuration
  * Centralized configuration for the application
+ * 
+ * Hassas olmayan değerler appConfig.js'den alınır.
+ * Hassas değerler (şifreler, API key'ler) .env dosyasından alınır.
  */
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const appConfig = require('../../appConfig.js');
 
 export default () => ({
   app: {
     name: 'Spendly API',
     version: '1.0.0',
-    port: parseInt(process.env.PORT || '3001', 10),
-    env: process.env.NODE_ENV || 'development',
+    port: parseInt(process.env.PORT || String(appConfig.app.port), 10),
+    env: process.env.NODE_ENV || appConfig.app.env,
   },
   cors: {
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
-    credentials: true,
+    origin: process.env.CORS_ORIGIN || appConfig.cors.origin,
+    credentials: appConfig.cors.credentials,
   },
   swagger: {
-    title: 'Spendly API',
-    description: 'Gelir-Gider Takip API',
-    version: '1.0',
-    path: 'api/docs',
+    title: appConfig.swagger.title,
+    description: appConfig.swagger.description,
+    version: appConfig.swagger.version,
+    path: appConfig.swagger.path,
   },
 });
 

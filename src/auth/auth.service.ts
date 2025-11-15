@@ -21,6 +21,8 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { VerifyCodeDto } from './dto/verify-code.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ErrorHandler, DEFAULT_CATEGORIES, CategoryType } from '../core';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const appConfig = require('../../appConfig.js');
 
 @Injectable()
 export class AuthService {
@@ -298,7 +300,8 @@ export class AuthService {
       }
 
       // Rate limiting kontrolü (son 5 dakikada istek var mı?)
-      const rateLimitMinutes = this.configService.get<number>('PASSWORD_RESET_RATE_LIMIT_MINUTES', 5);
+      // Hassas olmayan değer appConfig.js'den alınır
+      const rateLimitMinutes = this.configService.get<number>('PASSWORD_RESET_RATE_LIMIT_MINUTES') || appConfig.passwordReset.rateLimitMinutes;
       const rateLimitTime = new Date();
       rateLimitTime.setMinutes(rateLimitTime.getMinutes() - rateLimitMinutes);
 
@@ -329,7 +332,8 @@ export class AuthService {
       const code = this.generateResetCode();
 
       // Kod geçerlilik süresi (15 dakika)
-      const expiresIn = this.configService.get<string>('PASSWORD_RESET_CODE_EXPIRES_IN', '15m');
+      // Hassas olmayan değer appConfig.js'den alınır
+      const expiresIn = this.configService.get<string>('PASSWORD_RESET_CODE_EXPIRES_IN') || appConfig.passwordReset.codeExpiresIn;
       const expiresAt = new Date();
       if (expiresIn.endsWith('m')) {
         expiresAt.setMinutes(expiresAt.getMinutes() + parseInt(expiresIn));
@@ -433,7 +437,8 @@ export class AuthService {
       }
 
       // Deneme sayısı kontrolü
-      const maxAttempts = this.configService.get<number>('PASSWORD_RESET_MAX_ATTEMPTS', 5);
+      // Hassas olmayan değer appConfig.js'den alınır
+      const maxAttempts = this.configService.get<number>('PASSWORD_RESET_MAX_ATTEMPTS') || appConfig.passwordReset.maxAttempts;
       if (passwordReset.attempts >= maxAttempts) {
         throw new HttpException(
           {
@@ -597,7 +602,7 @@ export class AuthService {
   private async cleanupExpiredCodes(email: string): Promise<void> {
     // Süresi dolmuş veya çok fazla deneme yapılmış kodları sil
     const maxAttempts = parseInt(
-      this.configService.get<string>('PASSWORD_RESET_MAX_ATTEMPTS', '5'),
+      String(this.configService.get<number>('PASSWORD_RESET_MAX_ATTEMPTS') || appConfig.passwordReset.maxAttempts),
       10,
     );
     await this.prisma.passwordReset.deleteMany({
