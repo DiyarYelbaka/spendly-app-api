@@ -22,6 +22,14 @@ export class EmailService {
         user: this.configService.get<string>('EMAIL_USER'),
         pass: this.configService.get<string>('MAIL_KEY'), // App Password (boşluklar dahil)
       },
+      // Railway'da SMTP connection timeout sorunları için
+      connectionTimeout: 10000, // 10 saniye
+      greetingTimeout: 10000, // 10 saniye
+      socketTimeout: 10000, // 10 saniye
+      // TLS ayarları
+      tls: {
+        rejectUnauthorized: false, // Railway'da gerekli olabilir
+      },
     });
   }
 

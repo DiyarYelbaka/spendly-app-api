@@ -93,16 +93,44 @@ railway link
 railway run yarn prisma:migrate:deploy
 ```
 
-#### Yöntem 2: Railway Dashboard'dan
+#### Yöntem 2: Railway Dashboard'dan (Terminal Açma)
 
+**Yöntem A: Service üzerinden**
 1. Railway dashboard'da projenize gidin
-2. **"Deployments"** sekmesine tıklayın
-3. Son deployment'ın yanındaki **"..."** menüsüne tıklayın
-4. **"Open in Shell"** seçeneğini seçin
-5. Terminal'de şu komutu çalıştırın:
+2. **`spendly-app-api`** service'ine tıklayın
+3. Üst menüde **"Deployments"** sekmesine tıklayın
+4. En üstteki (en yeni) deployment'ın yanındaki **"..."** (üç nokta) menüsüne tıklayın
+5. **"View Logs"** veya **"Open in Shell"** seçeneğini seçin
+6. Terminal açıldığında şu komutu çalıştırın:
    ```bash
    yarn prisma:migrate:deploy
    ```
+
+**Yöntem B: Service Settings'den**
+1. Railway dashboard'da projenize gidin
+2. **`spendly-app-api`** service'ine tıklayın
+3. Sağ üstte **"Settings"** (⚙️) butonuna tıklayın
+4. **"Service"** sekmesinde **"Connect"** veya **"Shell"** butonunu bulun
+5. Terminal açıldığında şu komutu çalıştırın:
+   ```bash
+   yarn prisma:migrate:deploy
+   ```
+
+**Yöntem C: Railway CLI ile (En Kolay)**
+Eğer terminal bulamazsan, Railway CLI kullan:
+```bash
+# Railway CLI'yi yükle
+npm i -g @railway/cli
+
+# Railway'a login ol
+railway login
+
+# Projeye bağlan (proje klasöründe çalıştır)
+railway link
+
+# Migration'ları çalıştır
+railway run yarn prisma:migrate:deploy
+```
 
 ### 6. Domain ve HTTPS Ayarlama
 
