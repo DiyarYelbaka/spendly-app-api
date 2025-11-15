@@ -22,6 +22,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
+    "postinstall": "prisma generate",
     "docs:update": "echo '⚠️ Dokümantasyon güncellemesi manuel yapılmalıdır. PROGRESS.md ve NEXT_STEPS.md dosyalarını kontrol edin.'"
   },
   "dependencies": {
