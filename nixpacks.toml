@@ -1,0 +1,12 @@
+[phases.setup]
+nixPkgs = ["nodejs_20", "yarn-1_x", "openssl"]
+
+[phases.install]
+cmds = ["npm install -g corepack@0.24.1 && corepack enable", "yarn install --check-cache"]
+
+[phases.build]
+cmds = ["yarn install && yarn prisma:generate && yarn build"]
+
+[start]
+cmd = "yarn start:prod"
+

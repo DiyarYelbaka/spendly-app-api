@@ -64,14 +64,14 @@ CORS_ORIGIN=https://your-frontend-domain.com
 ### 4. Build ve Deploy Ayarları
 
 Railway otomatik olarak şunları yapar:
-- `.nvmrc` dosyasından Node.js versiyonunu okur (25.1.0) veya `package.json`'daki `engines.node` field'ını kullanır (>=20.0.0)
+- `nixpacks.toml` dosyasından Node.js versiyonunu okur (Node.js 20)
 - `package.json`'daki `build` script'ini çalıştırır
 - `postinstall` script'ini çalıştırır (Prisma generate)
 - `start:prod` script'ini çalıştırır
 
 **Not**: Railway otomatik olarak `PORT` environment variable'ını ayarlar. Uygulama bu port'u kullanır.
 
-**Node.js Versiyonu**: Proje Node.js 20+ gerektiriyor. Railway `.nvmrc` dosyasını otomatik okur. Eğer hala sorun yaşıyorsanız, Railway dashboard'dan **Settings** → **Service** → **Nixpacks** → **NIXPACKS_NODE_VERSION=20** environment variable'ını ekleyin.
+**Node.js Versiyonu**: Proje Node.js 20+ gerektiriyor. `nixpacks.toml` dosyası ile Node.js 20 belirtilmiştir. Eğer hala sorun yaşıyorsanız, Railway dashboard'dan **Variables** sekmesine gidin ve `NIXPACKS_NODE_VERSION=20` environment variable'ını ekleyin.
 
 ### 5. Database Migration Çalıştırma
 
@@ -181,9 +181,13 @@ Deploy etmeden önce şu environment variable'ların ayarlandığından emin olu
 
 - Railway loglarını kontrol edin
 - `package.json`'daki `build` script'inin doğru olduğundan emin olun
-- **Node.js Versiyonu**: Railway `.nvmrc` dosyasını veya `package.json`'daki `engines.node` field'ını okur
-  - Proje Node.js 20+ gerektiriyor (`.nvmrc` ve `engines` field'ı ile belirtilmiş)
-  - Eğer hala Node.js 18 kullanıyorsa, Railway dashboard'dan **Settings** → **Service** → **Nixpacks** → **NIXPACKS_NODE_VERSION=20** environment variable'ını ekleyin
+- **Node.js Versiyonu Hatası**: 
+  - Proje Node.js 20+ gerektiriyor (`nixpacks.toml` dosyası ile belirtilmiş)
+  - Eğer hala Node.js 18 kullanıyorsa:
+    1. Railway dashboard → **Variables** sekmesine gidin
+    2. `NIXPACKS_NODE_VERSION=20` environment variable'ını ekleyin
+    3. Deploy'u yeniden başlatın
+  - Alternatif: `nixpacks.toml` dosyasının proje root'unda olduğundan emin olun
 
 ### Migration Hatası
 
