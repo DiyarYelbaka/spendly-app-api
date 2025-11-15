@@ -30,6 +30,9 @@ export class EmailService {
       tls: {
         rejectUnauthorized: false, // Railway'da gerekli olabilir
       },
+      // Debug için (production'da kapatılabilir)
+      debug: process.env.NODE_ENV === 'development',
+      logger: process.env.NODE_ENV === 'development',
     });
   }
 

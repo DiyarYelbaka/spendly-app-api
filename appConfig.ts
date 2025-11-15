@@ -39,8 +39,8 @@ export default {
     fromName: 'Spendly',
     smtp: {
       host: 'smtp.gmail.com',
-      port: 587,
-      secure: false, // true for 465, false for other ports
+      port: 465, // SSL port - Railway'da daha güvenilir
+      secure: true, // true for 465, false for other ports
     },
   },
 
