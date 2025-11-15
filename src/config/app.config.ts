@@ -6,7 +6,7 @@
  * Hassas değerler (şifreler, API key'ler) .env dosyasından alınır.
  */
 
-import appConfig from '../../appConfig.mjs';
+import appConfig from '../../appConfig';
 
 export default () => ({
   app: {

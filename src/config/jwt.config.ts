@@ -6,7 +6,7 @@
  * Hassas değer (secret) .env dosyasından alınır.
  */
 
-import appConfig from '../../appConfig.mjs';
+import appConfig from '../../appConfig';
 
 export default () => ({
   jwt: {

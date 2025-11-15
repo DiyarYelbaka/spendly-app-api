@@ -21,7 +21,7 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { VerifyCodeDto } from './dto/verify-code.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ErrorHandler, DEFAULT_CATEGORIES, CategoryType } from '../core';
-import appConfig from '../../appConfig.mjs';
+import appConfig from '../../appConfig';
 
 @Injectable()
 export class AuthService {

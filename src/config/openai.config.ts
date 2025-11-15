@@ -8,7 +8,7 @@
  */
 
 import { registerAs } from '@nestjs/config';
-import appConfig from '../../appConfig.mjs';
+import appConfig from '../../appConfig';
 
 export default registerAs('openai', () => ({
   /**
