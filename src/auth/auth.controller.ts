@@ -240,15 +240,20 @@ export class AuthController {
    * Dönüş Değeri:
    * - 200 OK: Profil bilgileri alındı
    *   {
-   *     user: { id, email, name, createdAt },
-   *     userContext: { preferences, firstName, initials }
+   *     id: string,
+   *     email: string,
+   *     name: string,
+   *     createdAt: Date,
+   *     firstName: string,
+   *     initials: string,
+   *     preferences: {}
    *   }
    * - 401 Unauthorized: Token yok veya geçersiz
    * 
    * İş Akışı:
    * 1. JWT token'dan kullanıcı ID'si alınır (middleware veya guard tarafından)
    * 2. Kullanıcı veritabanından bulunur
-   * 3. Kullanıcı bilgileri ve context (bağlam) bilgileri döndürülür
+   * 3. Kullanıcı bilgileri tek bir obje olarak döndürülür (id, email, name, createdAt, firstName, initials, preferences)
    */
   @Get('me')
   @UseGuards(JwtAuthGuard)

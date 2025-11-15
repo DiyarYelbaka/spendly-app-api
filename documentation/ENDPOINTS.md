@@ -169,17 +169,13 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 {
   "success": true,
   "data": {
-    "user": {
-      "id": "550e8400-e29b-41d4-a716-446655440000",
-      "email": "user@example.com",
-      "name": "John Doe",
-      "createdAt": "2025-01-08T10:30:00.000Z"
-    },
-    "userContext": {
-      "preferences": {},
-      "firstName": "John",
-      "initials": "JD"
-    }
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "email": "user@example.com",
+    "name": "John Doe",
+    "createdAt": "2025-01-08T10:30:00.000Z",
+    "firstName": "John",
+    "initials": "JD",
+    "preferences": {}
   }
 }
 ```

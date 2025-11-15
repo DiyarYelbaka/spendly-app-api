@@ -255,9 +255,12 @@ export class AuthService {
         });
       }
 
-      // User context oluştur (frontend'in beklediği format)
-      const userContext = {
-        preferences: {},
+      // Tek bir obje olarak döndür (user bilgileri + frontend için formatlanmış bilgiler)
+      return {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        createdAt: user.createdAt,
         firstName: user.name.split(' ')[0] || user.name,
         initials: user.name
           .split(' ')
@@ -265,11 +268,7 @@ export class AuthService {
           .join('')
           .toUpperCase()
           .substring(0, 2),
-      };
-
-      return {
-        user,
-        userContext,
+        preferences: {},
       };
     } catch (error) {
       ErrorHandler.handleError(
