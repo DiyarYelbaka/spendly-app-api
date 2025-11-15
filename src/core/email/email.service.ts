@@ -43,19 +43,26 @@ export class EmailService {
         this.resend = new Resend(resendApiKey);
       }
 
-      // Hassas olmayan değerler (fromName) appConfig.ts'den alınır
-      const emailFromName = this.configService.get<string>('EMAIL_FROM_NAME') || appConfig.email.fromName;
-
       // Resend API ile email gönder
+      // Resend'de "from" alanı sadece email adresi veya "Name <email>" formatında olabilir
+      const emailFromName = this.configService.get<string>('EMAIL_FROM_NAME') || appConfig.email.fromName;
+      const fromAddress = emailFromName ? `${emailFromName} <${emailFrom}>` : emailFrom;
+
       const { data, error } = await this.resend.emails.send({
-        from: `${emailFromName} <${emailFrom}>`,
+        from: fromAddress,
         to: email,
         subject: 'Şifre Sıfırlama Kodu - Spendly',
         html: this.getPasswordResetTemplate(code),
       });
 
       if (error) {
-        this.logger.error(`Resend API error: ${JSON.stringify(error)}`);
+        this.logger.error(`Resend API error:`, {
+          error: JSON.stringify(error),
+          message: error.message,
+          name: error.name,
+          from: fromAddress,
+          to: email,
+        });
         throw new Error(`Email gönderilemedi: ${error.message || 'Bilinmeyen hata'}`);
       }
 
