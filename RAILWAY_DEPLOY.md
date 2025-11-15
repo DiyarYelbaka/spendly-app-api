@@ -42,10 +42,10 @@ JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
 # OpenAI Configuration
 OPENAI_API_KEY=sk-proj-...
 
-# Email Configuration (Gmail)
-EMAIL_USER=your-email@gmail.com
-MAIL_KEY=your-app-password
-EMAIL_FROM=your-email@gmail.com
+# Email Configuration (Resend API - Railway Hobby plan'da SMTP engellenmiş)
+# Resend: https://resend.com (Ücretsiz 3000 email/ay)
+RESEND_API_KEY=re_xxxxxxxxxxxxx
+EMAIL_FROM=onboarding@resend.dev  # Resend'de domain doğruladıktan sonra kendi domain'inizi kullanabilirsiniz
 
 # Application Settings (Opsiyonel - appConfig.js'de varsayılanlar var)
 NODE_ENV=production
@@ -186,9 +186,8 @@ Deploy etmeden önce şu environment variable'ların ayarlandığından emin olu
 - [ ] `DATABASE_URL` (PostgreSQL eklendiğinde otomatik)
 - [ ] `JWT_SECRET` (Güçlü bir secret key)
 - [ ] `OPENAI_API_KEY` (OpenAI API key'iniz)
-- [ ] `EMAIL_USER` (Gmail adresiniz)
-- [ ] `MAIL_KEY` (Gmail App Password)
-- [ ] `EMAIL_FROM` (Gönderen email adresi)
+- [ ] `RESEND_API_KEY` (Resend API key - https://resend.com)
+- [ ] `EMAIL_FROM` (Resend'de doğrulanmış email adresi veya domain)
 - [ ] `NODE_ENV=production`
 - [ ] `CORS_ORIGIN` (Frontend domain'iniz)
 

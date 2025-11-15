@@ -1,70 +1,65 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as nodemailer from 'nodemailer';
-import { Transporter } from 'nodemailer';
+import { Resend } from 'resend';
 import appConfig from '../../../appConfig';
 
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
-  private transporter: Transporter;
+  private resend: Resend;
 
   constructor(private configService: ConfigService) {
-    // Gmail SMTP yapılandırması
-    // Hassas olmayan değerler (host, port) appConfig.js'den alınır
-    // Hassas değerler (user, pass) .env dosyasından alınır
+    // Resend API yapılandırması
+    // Railway Hobby plan'da SMTP engellenmiş, bu yüzden Resend API kullanıyoruz
+    // Resend HTTPS API kullandığı için Railway'da çalışır
     
-    this.transporter = nodemailer.createTransport({
-      host: this.configService.get<string>('SMTP_HOST') || appConfig.email.smtp.host,
-      port: this.configService.get<number>('SMTP_PORT') || appConfig.email.smtp.port,
-      secure: appConfig.email.smtp.secure, // true for 465, false for other ports
-      auth: {
-        user: this.configService.get<string>('EMAIL_USER'),
-        pass: this.configService.get<string>('MAIL_KEY'), // App Password (boşluklar dahil)
-      },
-      // Railway'da SMTP connection timeout sorunları için
-      connectionTimeout: 10000, // 10 saniye
-      greetingTimeout: 10000, // 10 saniye
-      socketTimeout: 10000, // 10 saniye
-      // TLS ayarları
-      tls: {
-        rejectUnauthorized: false, // Railway'da gerekli olabilir
-      },
-      // Debug için (production'da kapatılabilir)
-      debug: process.env.NODE_ENV === 'development',
-      logger: process.env.NODE_ENV === 'development',
-    });
+    const resendApiKey = this.configService.get<string>('RESEND_API_KEY');
+    
+    if (!resendApiKey) {
+      this.logger.warn('RESEND_API_KEY not found. Email service will not work.');
+    } else {
+      this.resend = new Resend(resendApiKey);
+    }
   }
 
   async sendPasswordResetCode(email: string, code: string): Promise<void> {
     try {
-      // Environment variable kontrolü
-      const emailFrom = this.configService.get<string>('EMAIL_FROM');
-      const emailUser = this.configService.get<string>('EMAIL_USER');
-      const mailKey = this.configService.get<string>('MAIL_KEY');
+      // Resend API key kontrolü
+      const resendApiKey = this.configService.get<string>('RESEND_API_KEY');
+      const emailFrom = this.configService.get<string>('EMAIL_FROM') || this.configService.get<string>('RESEND_FROM_EMAIL');
 
-      if (!emailFrom || !emailUser || !mailKey) {
-        const missingVars = [];
-        if (!emailFrom) missingVars.push('EMAIL_FROM');
-        if (!emailUser) missingVars.push('EMAIL_USER');
-        if (!mailKey) missingVars.push('MAIL_KEY');
-        
-        this.logger.error(`Missing email configuration: ${missingVars.join(', ')}`);
-        throw new Error(`Email yapılandırması eksik: ${missingVars.join(', ')}`);
+      if (!resendApiKey) {
+        this.logger.error('RESEND_API_KEY is missing');
+        throw new Error('Email yapılandırması eksik: RESEND_API_KEY');
       }
 
-      // Hassas olmayan değerler (fromName) appConfig.js'den alınır
+      if (!emailFrom) {
+        this.logger.error('EMAIL_FROM or RESEND_FROM_EMAIL is missing');
+        throw new Error('Email yapılandırması eksik: EMAIL_FROM veya RESEND_FROM_EMAIL');
+      }
+
+      // Resend client'ı yoksa oluştur
+      if (!this.resend) {
+        this.resend = new Resend(resendApiKey);
+      }
+
+      // Hassas olmayan değerler (fromName) appConfig.ts'den alınır
       const emailFromName = this.configService.get<string>('EMAIL_FROM_NAME') || appConfig.email.fromName;
 
-      const mailOptions = {
-        from: `"${emailFromName}" <${emailFrom}>`,
+      // Resend API ile email gönder
+      const { data, error } = await this.resend.emails.send({
+        from: `${emailFromName} <${emailFrom}>`,
         to: email,
         subject: 'Şifre Sıfırlama Kodu - Spendly',
         html: this.getPasswordResetTemplate(code),
-      };
+      });
 
-      await this.transporter.sendMail(mailOptions);
-      this.logger.log(`Password reset code sent to ${email}`);
+      if (error) {
+        this.logger.error(`Resend API error: ${JSON.stringify(error)}`);
+        throw new Error(`Email gönderilemedi: ${error.message || 'Bilinmeyen hata'}`);
+      }
+
+      this.logger.log(`Password reset code sent to ${email} via Resend. Email ID: ${data?.id}`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       const errorStack = error instanceof Error ? error.stack : String(error);
@@ -78,10 +73,6 @@ export class EmailService {
       // Daha anlamlı hata mesajı
       if (errorMessage.includes('Email yapılandırması eksik')) {
         throw new Error('Email servisi yapılandırılmamış. Lütfen sistem yöneticisine başvurun.');
-      }
-      
-      if (errorMessage.includes('Invalid login') || errorMessage.includes('authentication failed')) {
-        throw new Error('Email kimlik doğrulama hatası. Lütfen sistem yöneticisine başvurun.');
       }
       
       throw error;

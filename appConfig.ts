@@ -35,13 +35,9 @@ export default {
   },
 
   // Email Configuration (non-sensitive)
+  // Resend API kullanıyoruz (Railway Hobby plan'da SMTP engellenmiş)
   email: {
     fromName: 'Spendly',
-    smtp: {
-      host: 'smtp.gmail.com',
-      port: 465, // SSL port - Railway'da daha güvenilir
-      secure: true, // true for 465, false for other ports
-    },
   },
 
   // Swagger Configuration
