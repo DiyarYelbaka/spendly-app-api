@@ -164,10 +164,14 @@ export class VoiceTransactionService {
 }
 
 Kurallar:
-- Türkçe: "aldım", "kazandım", "maaş", "gelir" → income
-- İngilizce: "received", "earned", "salary", "income" → income
-- Türkçe: "yaptım", "harcadım", "ödeme", "gider" → expense
-- İngilizce: "spent", "paid", "payment", "expense" → expense
+- Türkçe gelir ifadeleri: "kazandım", "maaş", "gelir", "maaş aldım", "para aldım" (sadece para/maaş bağlamında) → income
+- İngilizce gelir ifadeleri: "received", "earned", "salary", "income" → income
+- Türkçe gider ifadeleri: "aldım" (ürün/hizmet satın alma: "araba aldım", "telefon aldım", "500 tl ye araba aldım"), "satın aldım", "yaptım", "harcadım", "ödeme", "gider", "ödedim" → expense
+- İngilizce gider ifadeleri: "spent", "paid", "payment", "expense", "bought", "purchased" → expense
+- ÖNEMLİ: "aldım" kelimesi bağlama göre değerlendir:
+  * Ürün/hizmet ile kullanıldığında (örn: "araba aldım", "500 tl ye araba aldım") → expense
+  * Para/maaş ile kullanıldığında (örn: "maaş aldım", "500 tl aldım" - bağlam gelir ise) → income
+  * Belirsizse, ürün/hizmet satın alma anlamına geliyorsa expense olarak işaretle
 - Tutarı mutlaka çıkar (sayı + "tl", "lira", "₺", "dollar", "$" gibi)
 - Kategori keyword'ü çıkar (ÖNEMLİ: Kullanıcının özel kategori isimlerini de çıkar):
   * Standart kategoriler: "market", "yemek", "maaş", "yatırım", "ulaşım", "fatura", "eğlence", "sağlık"
