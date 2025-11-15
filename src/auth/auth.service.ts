@@ -21,8 +21,7 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { VerifyCodeDto } from './dto/verify-code.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ErrorHandler, DEFAULT_CATEGORIES, CategoryType } from '../core';
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const appConfig = require('../../appConfig.js');
+import appConfig from '../../appConfig.mjs';
 
 @Injectable()
 export class AuthService {

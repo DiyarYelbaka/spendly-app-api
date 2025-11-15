@@ -6,8 +6,7 @@
  * Hassas değer (secret) .env dosyasından alınır.
  */
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const appConfig = require('../../appConfig.js');
+import appConfig from '../../appConfig.mjs';
 
 export default () => ({
   jwt: {

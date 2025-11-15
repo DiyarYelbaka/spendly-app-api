@@ -8,8 +8,7 @@
  */
 
 import { registerAs } from '@nestjs/config';
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const appConfig = require('../../appConfig.js');
+import appConfig from '../../appConfig.mjs';
 
 export default registerAs('openai', () => ({
   /**

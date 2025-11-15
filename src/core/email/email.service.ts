@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import { Transporter } from 'nodemailer';
+import appConfig from '../../../appConfig.mjs';
 
 @Injectable()
 export class EmailService {
@@ -12,7 +13,6 @@ export class EmailService {
     // Gmail SMTP yapılandırması
     // Hassas olmayan değerler (host, port) appConfig.js'den alınır
     // Hassas değerler (user, pass) .env dosyasından alınır
-    const appConfig = require('../../../appConfig.js');
     
     this.transporter = nodemailer.createTransport({
       host: this.configService.get<string>('SMTP_HOST') || appConfig.email.smtp.host,
@@ -51,7 +51,6 @@ export class EmailService {
       }
 
       // Hassas olmayan değerler (fromName) appConfig.js'den alınır
-      const appConfig = require('../../../appConfig.js');
       const emailFromName = this.configService.get<string>('EMAIL_FROM_NAME') || appConfig.email.fromName;
 
       const mailOptions = {
