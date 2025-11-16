@@ -13,6 +13,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
+import { OAuth2Client } from 'google-auth-library';
 import { PrismaService, EmailService } from '../core';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -20,6 +21,7 @@ import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { VerifyCodeDto } from './dto/verify-code.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { GoogleSignInDto } from './dto/google-signin.dto';
 import { ErrorHandler, DEFAULT_CATEGORIES, CategoryType } from '../core';
 import appConfig from '../../appConfig';
 
@@ -136,6 +138,15 @@ export class AuthService {
         throw new UnprocessableEntityException({
           message: 'Email veya şifre hatalı',
           messageKey: 'INVALID_CREDENTIALS',
+          error: 'UNPROCESSABLE_ENTITY',
+        });
+      }
+
+      // Google ile giriş yapan kullanıcılar için şifre yok
+      if (!user.password) {
+        throw new UnprocessableEntityException({
+          message: 'Bu hesap Google ile giriş yapmak için oluşturulmuş. Lütfen Google ile giriş yapın.',
+          messageKey: 'GOOGLE_ACCOUNT_REQUIRED',
           error: 'UNPROCESSABLE_ENTITY',
         });
       }
@@ -632,6 +643,149 @@ export class AuthService {
         where: { id: passwordReset.id },
         data: { attempts: passwordReset.attempts + 1 },
       });
+    }
+  }
+
+  async googleSignIn(dto: GoogleSignInDto) {
+    try {
+      // Google Client ID (opsiyonel, environment variable'dan alınabilir)
+      const googleClientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
+      
+      // OAuth2Client oluştur
+      const client = new OAuth2Client(googleClientId);
+
+      // Token'ı doğrula
+      let ticket;
+      try {
+        const verifyOptions: any = {
+          idToken: dto.idToken,
+        };
+        
+        // Eğer client ID varsa audience kontrolü yap
+        if (googleClientId) {
+          verifyOptions.audience = googleClientId;
+        }
+        
+        ticket = await client.verifyIdToken(verifyOptions);
+      } catch (error) {
+        this.logger.error('Google token verification failed', error);
+        throw new UnauthorizedException({
+          message: 'Geçersiz Google token',
+          messageKey: 'INVALID_GOOGLE_TOKEN',
+          error: 'UNAUTHORIZED',
+        });
+      }
+
+      // Token payload'ından kullanıcı bilgilerini çıkar
+      const payload = ticket.getPayload();
+      
+      if (!payload) {
+        throw new UnauthorizedException({
+          message: 'Google token payload bulunamadı',
+          messageKey: 'INVALID_GOOGLE_TOKEN',
+          error: 'UNAUTHORIZED',
+        });
+      }
+
+      // Email kontrolü (Google token'da email olmalı)
+      if (!payload.email) {
+        throw new UnauthorizedException({
+          message: 'Google token\'da email bilgisi bulunamadı',
+          messageKey: 'MISSING_EMAIL_IN_TOKEN',
+          error: 'UNAUTHORIZED',
+        });
+      }
+
+      const email = payload.email;
+      const name = payload.name || payload.given_name || 'Google User';
+      const picture = payload.picture;
+
+      // Email ile kullanıcıyı kontrol et
+      let user = await this.prisma.user.findUnique({
+        where: { email },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          createdAt: true,
+        },
+      });
+
+      // Kullanıcı yoksa oluştur
+      if (!user) {
+        // Transaction içinde user ve default kategorileri oluştur
+        const result = await this.prisma.$transaction(async (tx: any) => {
+          // User oluştur (password: null - Google ile giriş yapan kullanıcılar için şifre yok)
+          const newUser = await tx.user.create({
+            data: {
+              email,
+              password: null, // Google ile giriş yapan kullanıcılar için şifre yok
+              name,
+            },
+            select: {
+              id: true,
+              email: true,
+              name: true,
+              createdAt: true,
+            },
+          });
+
+          // Default kategorileri oluştur
+          await Promise.all(
+            DEFAULT_CATEGORIES.map((cat) =>
+              tx.category.create({
+                data: {
+                  name: cat.nameKey,
+                  type: cat.type,
+                  icon: cat.icon,
+                  color: cat.color,
+                  sortOrder: cat.sortOrder,
+                  isDefault: true,
+                  userId: newUser.id,
+                },
+              }),
+            ),
+          );
+
+          return newUser;
+        });
+
+        user = result;
+      }
+
+      // User garantisi (TypeScript için)
+      if (!user) {
+        throw new UnauthorizedException({
+          message: 'Kullanıcı oluşturulamadı',
+          messageKey: 'USER_CREATION_FAILED',
+          error: 'UNAUTHORIZED',
+        });
+      }
+
+      // JWT token oluştur
+      const tokens = await this.generateTokens(user.id);
+
+      return {
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          createdAt: user.createdAt,
+        },
+        tokens,
+      };
+    } catch (error) {
+      // UnauthorizedException ise direkt fırlat
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+
+      ErrorHandler.handleError(
+        error,
+        this.logger,
+        'googleSignIn',
+        'Google ile giriş yapılırken bir hata oluştu',
+      );
     }
   }
 

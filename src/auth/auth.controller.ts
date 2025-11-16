@@ -20,6 +20,7 @@ import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { VerifyCodeDto } from './dto/verify-code.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { GoogleSignInDto } from './dto/google-signin.dto';
 
 // JwtAuthGuard: JWT token kontrolü yapan guard (koruyucu)
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -144,6 +145,48 @@ export class AuthController {
     // Service'e giriş isteği gönderilir
     // dto: Kullanıcıdan gelen giriş bilgileri
     return await this.authService.login(dto);
+  }
+
+  /**
+   * googleSignIn: Google ile giriş endpoint'i
+   * 
+   * HTTP Metodu: POST
+   * URL: /api/auth/google-signin
+   * 
+   * Bu endpoint, Google Sign-In ile giriş yapmak için kullanılır.
+   * Frontend'den gelen Google ID Token doğrulanır ve kullanıcı otomatik olarak
+   * kaydedilir veya giriş yapar.
+   * 
+   * @Post('google-signin'): Bu fonksiyonun POST /api/auth/google-signin isteğine yanıt vereceğini belirtir
+   * 
+   * Parametreler:
+   * @Body() dto: Request body'den gelen Google ID Token (GoogleSignInDto formatında)
+   *   - idToken: Google ID Token string'i (zorunlu)
+   * 
+   * Dönüş Değeri:
+   * - 200 OK: Giriş başarılı
+   *   {
+   *     user: { id, email, name, createdAt },
+   *     tokens: { accessToken, refreshToken, expiresAt }
+   *   }
+   * - 401 Unauthorized: Geçersiz Google token
+   * 
+   * İş Akışı:
+   * 1. Google ID Token doğrulanır (google-auth-library ile)
+   * 2. Token'dan kullanıcı bilgileri çıkarılır (email, name, picture)
+   * 3. Email ile kullanıcı kontrol edilir
+   * 4. Kullanıcı yoksa otomatik kayıt yapılır (şifre olmadan, varsayılan kategoriler ile)
+   * 5. Kullanıcı varsa mevcut kullanıcı kullanılır
+   * 6. JWT token'lar oluşturulur ve döndürülür
+   */
+  @Post('google-signin')
+  @ApiOperation({ summary: 'Google ile giriş' })
+  @ApiResponse({ status: 200, description: 'Google ile giriş başarılı' })
+  @ApiResponse({ status: 401, description: 'Geçersiz Google token' })
+  async googleSignIn(@Body() dto: GoogleSignInDto) {
+    // Service'e Google giriş isteği gönderilir
+    // dto: Google ID Token bilgisi
+    return await this.authService.googleSignIn(dto);
   }
 
   /**
