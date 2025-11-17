@@ -31,7 +31,7 @@ export default {
     model: 'gpt-4o-mini',
     enabled: true,
     confidenceThreshold: 0.7,
-    timeout: 5000, // milliseconds
+    timeout: 5000, 
   },
 
   // Email Configuration (non-sensitive)
