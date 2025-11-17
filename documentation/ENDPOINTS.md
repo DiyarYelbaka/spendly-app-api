@@ -120,6 +120,68 @@ Content-Type: application/json
 }
 ```
 
+### POST /api/auth/google-signin
+
+Google ile giriş yapar. Google ID Token doğrulanır ve kullanıcı otomatik olarak kaydedilir veya giriş yapar.
+
+**Authentication**: Gerekli değil
+
+**Request**:
+```http
+POST /api/auth/google-signin
+Content-Type: application/json
+
+{
+  "idToken": "eyJhbGciOiJSUzI1NiIsImtpZCI6..."
+}
+```
+
+**Response (200 OK)**: Register ile aynı format
+```json
+{
+  "success": true,
+  "data": {
+    "user": {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "email": "user@gmail.com",
+      "name": "John Doe",
+      "createdAt": "2025-01-16T10:30:00.000Z"
+    },
+    "tokens": {
+      "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+      "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+      "expiresAt": "2025-01-23T10:30:00.000Z"
+    }
+  }
+}
+```
+
+**Hata Örnekleri**:
+
+**401 Unauthorized** - Geçersiz Google token:
+```json
+{
+  "success": false,
+  "error": {
+    "message": "Geçersiz Google token",
+    "messageKey": "INVALID_GOOGLE_TOKEN",
+    "statusCode": 401
+  }
+}
+```
+
+**401 Unauthorized** - Token'da email yok:
+```json
+{
+  "success": false,
+  "error": {
+    "message": "Google token'da email bilgisi bulunamadı",
+    "messageKey": "MISSING_EMAIL_IN_TOKEN",
+    "statusCode": 401
+  }
+}
+```
+
 ### POST /api/auth/refresh
 
 Access token'ı yeniler.
