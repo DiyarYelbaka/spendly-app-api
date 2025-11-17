@@ -54,17 +54,37 @@ Eski dokümantasyon `docs/` klasöründe mevcuttur:
 ## 🚀 Kurulum
 
 ```bash
-# Dependencies yükle
+# 1. Dependencies yükle
 yarn install
 
-# Environment variables ayarla
-cp .env.example .env
+# 2. Environment variables ayarla
+# .env dosyası oluştur ve gerekli değişkenleri ekle:
+# DATABASE_URL=postgresql://postgres:password@localhost:5432/spendly
+# JWT_SECRET=your-secret-key
+# RESEND_API_KEY=your-resend-key (opsiyonel)
+# OPENAI_API_KEY=your-openai-key (opsiyonel)
 
-# Database migration'ları çalıştır
-yarn prisma migrate dev
+# 3. Veritabanını oluştur ve migration'ları uygula
+npx prisma migrate deploy
+# Ya da development'ta:
+# npx prisma migrate dev
 
-# Uygulamayı başlat
+# 4. Prisma Client'ı oluştur
+npx prisma generate
+
+# 5. Uygulamayı başlat
 yarn start:dev
+```
+
+### 🔄 Veritabanını Sıfırdan Kurmak
+
+```bash
+# Veritabanını temizle ve migration'ları yeniden uygula
+npx prisma migrate reset --force
+
+# Ya da manuel olarak:
+# 1. pgAdmin'de veritabanını sil
+# 2. npx prisma migrate deploy
 ```
 
 Detaylı kurulum için **[documentation/SETUP.md](./documentation/SETUP.md)** dosyasına bakınız.
