@@ -71,26 +71,26 @@ export class PaginationQueryDto {
    * 
    * = 20: Varsayılan değer 20'dir (gönderilmezse 20 kullanılır)
    * 
-   * Neden Max 100?
+   * Neden Max 10000?
    * - Çok fazla kayıt getirmek performans sorunlarına yol açabilir
    * - Veritabanı sorguları yavaşlar
    * - Ağ trafiği artar
    * - Frontend'de render etmek zorlaşır
    * 
-   * Örnek: ?results=20 (20 kayıt), ?results=50 (50 kayıt), ?results=100 (100 kayıt - maksimum)
+   * Örnek: ?results=20 (20 kayıt), ?results=50 (50 kayıt), ?results=10000 (10000 kayıt - maksimum)
    */
   @ApiPropertyOptional({
     description: 'Sayfa başına kayıt sayısı',
     example: 20,
     minimum: 1,
-    maximum: 100,
+    maximum: 10000,
     default: 20,
   })
   @IsOptional()
   @Type(() => Number)
   @IsInt({ message: 'Sayfa başına kayıt sayısı tam sayı (integer) olmalıdır' })
   @Min(1, { message: 'Sayfa başına kayıt sayısı en az 1 olmalıdır' })
-  @Max(100, { message: 'Sayfa başına kayıt sayısı en fazla 100 olmalıdır' })
+  @Max(10000, { message: 'Sayfa başına kayıt sayısı en fazla 10000 olmalıdır' })
   results?: number = 20;
 }
 
