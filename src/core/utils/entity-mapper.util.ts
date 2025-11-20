@@ -13,6 +13,9 @@
  * 3. Veri formatlamak (tarih, Decimal, vb.)
  */
 
+// formatDateToString: Tarihi timezone-safe formatlamak için
+import { formatDateToString } from './date.util';
+
 /**
  * toSnakeCase: camelCase string'i snake_case'e çeviren fonksiyon
  * 
@@ -303,7 +306,7 @@ export function formatTransaction(transaction: any): any {
     /**
      * date: İşlem tarihi
      * 
-     * Tarih formatı: YYYY-MM-DD (ISO8601 tarih formatı, sadece tarih kısmı)
+     * Tarih formatı: YYYY-MM-DD veya YYYY-MM-DD HH:mm
      * 
      * transaction.date ? ... : undefined:
      *   - Eğer date varsa → Formatlanmış tarih
@@ -311,18 +314,25 @@ export function formatTransaction(transaction: any): any {
      * 
      * typeof transaction.date === 'string':
      *   - Eğer zaten string ise → Olduğu gibi kullan
-     *   - Date nesnesi ise → toISOString().split('T')[0] ile formatla
+     *   - Date nesnesi ise → formatDateToString ile formatla (timezone-safe)
      * 
-     * toISOString(): Date nesnesini ISO8601 formatına çevirir
-     *   Örnek: "2025-01-21T10:30:00.000Z"
+     * formatDateToString(): Date nesnesini local timezone'da formatlar
+     *   - Timezone sorunlarını önler
+     *   - Saat bilgisi varsa onu da korur
+     *   - Örnek: Date(2025-11-21 15:30) → "2025-11-21 15:30"
      * 
-     * .split('T')[0]: "T" karakterinden böler ve ilk kısmı alır
-     *   Örnek: "2025-01-21T10:30:00.000Z" → ["2025-01-21", "10:30:00.000Z"] → "2025-01-21"
+     * ÖNEMLİ: toISOString() kullanmıyoruz çünkü UTC'ye çevirir ve timezone farkı yüzünden
+     * bir önceki güne düşebilir. formatDateToString local timezone'da formatlar.
      */
     date: transaction.date
       ? (typeof transaction.date === 'string'
           ? transaction.date
-          : transaction.date.toISOString().split('T')[0])
+          : (() => {
+              // Date nesnesini local timezone'da formatla
+              // Saat bilgisi var mı kontrol et (saat 00:00:00 değilse veya dakika 0 değilse)
+              const hasTime = transaction.date.getHours() !== 0 || transaction.date.getMinutes() !== 0;
+              return formatDateToString(transaction.date, hasTime);
+            })())
       : undefined,
     
     notes: transaction.notes,

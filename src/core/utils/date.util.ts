@@ -231,3 +231,67 @@ export function parseDateString(dateString: string): Date {
   }
 }
 
+/**
+ * formatDateToString: Date nesnesini timezone-safe şekilde string'e çevirir
+ * 
+ * Bu fonksiyon, Date nesnesini YYYY-MM-DD veya YYYY-MM-DD HH:mm formatında string'e çevirir.
+ * Timezone sorunlarını önlemek için local timezone'da formatlar.
+ * 
+ * @param date: Date - Formatlanacak tarih
+ * 
+ * @param includeTime: boolean - Saat bilgisini de dahil et (varsayılan: false)
+ *   true: "YYYY-MM-DD HH:mm" formatında döner
+ *   false: "YYYY-MM-DD" formatında döner
+ * 
+ * @returns string - Formatlanmış tarih string'i
+ *   includeTime=false: "2025-11-21"
+ *   includeTime=true: "2025-11-21 15:30"
+ * 
+ * Neden Gerekli?
+ * - toISOString() UTC'ye çevirir ve timezone farkı yüzünden bir önceki güne düşebilir
+ * - Local timezone'da formatlamak için bu fonksiyonu kullanıyoruz
+ * 
+ * Örnek Kullanım:
+ * formatDateToString(new Date(2025, 10, 21, 15, 30))
+ * → "2025-11-21" (includeTime=false)
+ * 
+ * formatDateToString(new Date(2025, 10, 21, 15, 30), true)
+ * → "2025-11-21 15:30" (includeTime=true)
+ */
+export function formatDateToString(date: Date, includeTime: boolean = false): string {
+  /**
+   * Local timezone'da yıl, ay, gün, saat, dakika bilgilerini al
+   * 
+   * getFullYear(): Yıl (2025)
+   * getMonth(): Ay (0-11 arası, 10 = Kasım)
+   * getDate(): Gün (1-31 arası)
+   * getHours(): Saat (0-23 arası)
+   * getMinutes(): Dakika (0-59 arası)
+   */
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0'); // +1 çünkü getMonth() 0-indexed
+  const day = String(date.getDate()).padStart(2, '0');
+  
+  /**
+   * Tarih kısmını oluştur
+   * 
+   * padStart(2, '0'): String'i 2 karakter yap, eksikse başına 0 ekle
+   *   Örnek: "1" → "01", "11" → "11"
+   */
+  const dateStr = `${year}-${month}-${day}`;
+  
+  /**
+   * Eğer saat bilgisi isteniyorsa, saat ve dakikayı da ekle
+   */
+  if (includeTime) {
+    const hour = String(date.getHours()).padStart(2, '0');
+    const minute = String(date.getMinutes()).padStart(2, '0');
+    return `${dateStr} ${hour}:${minute}`;
+  }
+  
+  /**
+   * Sadece tarih döndür
+   */
+  return dateStr;
+}
+
