@@ -48,6 +48,7 @@ export * from './dto/pagination-query.dto';
 export * from './utils/pagination.util';
 export * from './utils/entity-mapper.util';
 export * from './utils/error-handler.util';
+export * from './utils/date.util';
 
 /**
  * Decorators (Süsleyiciler)
