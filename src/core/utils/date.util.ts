@@ -126,3 +126,108 @@ export function getDaysBetween(startDate: string, endDate: string): string[] {
   return days;
 }
 
+/**
+ * parseDateString: Tarih string'ini timezone-safe şekilde parse eder
+ * 
+ * Bu fonksiyon, YYYY-MM-DD veya YYYY-MM-DD HH:mm formatındaki tarih string'ini Date nesnesine çevirir.
+ * Timezone sorunlarını önlemek için local timezone'da parse eder.
+ * 
+ * @param dateString: string - Tarih string'i
+ *   Format 1: "YYYY-MM-DD" (sadece tarih)
+ *     Örnek: "2025-11-21"
+ *   Format 2: "YYYY-MM-DD HH:mm" (tarih + saat)
+ *     Örnek: "2025-11-21 15:30"
+ * 
+ * @returns Date - Parse edilmiş tarih (local timezone'da)
+ *   Format 1: Date(2025-11-21 00:00:00 local time)
+ *   Format 2: Date(2025-11-21 15:30:00 local time)
+ * 
+ * Neden Gerekli?
+ * - new Date("2025-11-21") UTC olarak parse edilir
+ * - Bu yüzden timezone farkı yüzünden bir önceki güne kaydedilebilir
+ * - Örnek: Türkiye'de (UTC+3) gece 00:49'da yapılan işlem UTC'de hala önceki gün
+ * 
+ * Çözüm:
+ * - Tarih string'ini local timezone'da parse ediyoruz
+ * - "2025-11-21" → [2025, 10, 21] → new Date(2025, 10, 21)
+ * - "2025-11-21 15:30" → [2025, 10, 21, 15, 30] → new Date(2025, 10, 21, 15, 30)
+ * - Bu sayede hangi timezone'da olursa olsun, tarih doğru kaydedilir
+ * 
+ * Global Projeler İçin:
+ * - Bu yaklaşım, kullanıcının bulunduğu timezone'a göre çalışır
+ * - Server'ın timezone'u ne olursa olsun, tarih doğru kaydedilir
+ * - Frontend'den timezone bilgisi gönderilirse, o da kullanılabilir (gelecek geliştirme)
+ * 
+ * Örnek Kullanım:
+ * parseDateString("2025-11-21")
+ * → Date(2025-11-21 00:00:00 local time)
+ * 
+ * parseDateString("2025-11-21 15:30")
+ * → Date(2025-11-21 15:30:00 local time)
+ */
+export function parseDateString(dateString: string): Date {
+  /**
+   * Tarih string'inde saat bilgisi var mı kontrol et
+   * 
+   * "YYYY-MM-DD HH:mm" formatında boşluk ve iki nokta üst üste varsa saat bilgisi var demektir
+   */
+  const hasTime = dateString.includes(' ') && dateString.includes(':');
+
+  if (hasTime) {
+    /**
+     * Format 2: Tarih + Saat (YYYY-MM-DD HH:mm)
+     * 
+     * Örnek: "2025-11-21 15:30"
+     */
+    const [datePart, timePart] = dateString.split(' ');
+    
+    // Tarih kısmını parse et: "2025-11-21" → [2025, 11, 21]
+    const [year, month, day] = datePart.split('-').map(Number);
+    
+    // Saat kısmını parse et: "15:30" → [15, 30]
+    const [hour, minute] = timePart.split(':').map(Number);
+    
+    /**
+     * Local timezone'da Date nesnesi oluştur (tarih + saat)
+     * 
+     * new Date(year, month - 1, day, hour, minute):
+     *   - year: Yıl (2025)
+     *   - month - 1: Ay (0-indexed, yani 10 = Kasım)
+     *   - day: Gün (21)
+     *   - hour: Saat (15)
+     *   - minute: Dakika (30)
+     * 
+     * Bu constructor, local timezone'da belirtilen tarih ve saati oluşturur.
+     * 
+     * Örnek:
+     *   new Date(2025, 10, 21, 15, 30) → 2025-11-21 15:30:00 local time
+     */
+    return new Date(year, month - 1, day, hour, minute || 0);
+  } else {
+    /**
+     * Format 1: Sadece Tarih (YYYY-MM-DD)
+     * 
+     * Örnek: "2025-11-21"
+     */
+    const [year, month, day] = dateString.split('-').map(Number);
+
+    /**
+     * Local timezone'da Date nesnesi oluştur (sadece tarih, saat 00:00:00)
+     * 
+     * new Date(year, month - 1, day):
+     *   - year: Yıl (2025)
+     *   - month - 1: Ay (0-indexed, yani 10 = Kasım)
+     *   - day: Gün (21)
+     * 
+     * Bu constructor, local timezone'da o günün başlangıcını (00:00:00) oluşturur.
+     * Timezone farkından etkilenmez.
+     * 
+     * Örnek:
+     *   new Date(2025, 10, 21) → 2025-11-21 00:00:00 local time
+     *   Türkiye'de: 2025-11-21 00:00:00+03:00
+     *   ABD'de: 2025-11-21 00:00:00-05:00
+     */
+    return new Date(year, month - 1, day);
+  }
+}
+

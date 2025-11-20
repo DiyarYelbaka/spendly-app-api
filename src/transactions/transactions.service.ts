@@ -17,7 +17,7 @@ import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { TransactionQueryDto } from './dto/transaction-query.dto';
 
 // Yardımcı fonksiyonlar: Ortak işlemler için kullanılan utility fonksiyonları
-import { ErrorHandler, parsePagination, createPaginationResult, formatTransaction } from '../core';
+import { ErrorHandler, parsePagination, createPaginationResult, formatTransaction, parseDateString } from '../core';
 
 /**
  * TransactionsService Sınıfı
@@ -121,10 +121,11 @@ export class TransactionsService {
        * Eğer dto.date gönderilmişse, o tarih kullanılır.
        * Gönderilmemişse, bugünün tarihi kullanılır (varsayılan).
        * 
-       * new Date(dto.date): String tarihi Date nesnesine çevirir
-       * new Date(): Şu anki tarih ve saat
+       * ÖNEMLİ: Tarih string'ini (YYYY-MM-DD) parse ederken timezone sorununu önlemek için
+       * parseDateString utility fonksiyonunu kullanıyoruz. Bu fonksiyon, tarih string'ini
+       * local timezone'da parse eder ve timezone farkından etkilenmez.
        */
-      const transactionDate = dto.date ? new Date(dto.date) : new Date();
+      const transactionDate = dto.date ? parseDateString(dto.date) : new Date();
 
       /**
        * ADIM 4: İşlemi Veritabanına Kaydet
@@ -246,8 +247,12 @@ export class TransactionsService {
        * 
        * Eğer dto.date gönderilmişse, o tarih kullanılır.
        * Gönderilmemişse, bugünün tarihi kullanılır (varsayılan).
+       * 
+       * ÖNEMLİ: Tarih string'ini (YYYY-MM-DD) parse ederken timezone sorununu önlemek için
+       * parseDateString utility fonksiyonunu kullanıyoruz. Bu fonksiyon, tarih string'ini
+       * local timezone'da parse eder ve timezone farkından etkilenmez.
        */
-      const transactionDate = dto.date ? new Date(dto.date) : new Date();
+      const transactionDate = dto.date ? parseDateString(dto.date) : new Date();
 
       /**
        * ADIM 4: İşlemi Veritabanına Kaydet
@@ -668,7 +673,7 @@ export class TransactionsService {
           amount: dto.amount,
           description: dto.description,
           categoryId: dto.category_id,
-          date: dto.date ? new Date(dto.date) : undefined,
+          date: dto.date ? parseDateString(dto.date) : undefined,
           notes: dto.notes,
         },
         include: {

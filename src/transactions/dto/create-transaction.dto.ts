@@ -9,6 +9,7 @@ import {
   IsOptional,
   IsUUID,
   IsDateString,
+  Matches,
   Min,
   MinLength,
   MaxLength,
@@ -105,23 +106,28 @@ export class CreateTransactionDto {
   /**
    * date: İşlem tarihi
    * 
-   * İşlemin hangi tarihte yapıldığını belirtir.
+   * İşlemin hangi tarihte (ve saatte) yapıldığını belirtir.
    * 
-   * @IsDateString(): Bu alan ISO8601 formatında tarih string'i olmalıdır
-   *   ISO8601 formatı: YYYY-MM-DD (örneğin: "2025-01-21")
+   * @IsString(): Bu alan string tipinde olmalıdır
+   * @Matches(): Regex ile format kontrolü yapar
+   *   Format 1: YYYY-MM-DD (sadece tarih)
+   *   Format 2: YYYY-MM-DD HH:mm (tarih + saat)
    * @IsOptional(): Bu alan opsiyoneldir (gönderilmezse bugünün tarihi kullanılır)
    * 
    * Varsayılan: Eğer gönderilmezse, bugünün tarihi kullanılır
    * 
-   * Örnek: "2025-01-21", "2025-12-31"
+   * Örnek: "2025-01-21", "2025-12-31", "2025-11-21 15:30"
    * Örnek geçersiz: "21-01-2025" (format yanlış), "2025/01/21" (tire yerine slash)
    */
   @ApiProperty({
-    example: '2025-01-21',
-    description: 'Tarih (ISO8601 format: YYYY-MM-DD, opsiyonel, default: bugün)',
+    example: '2025-01-21 15:30',
+    description: 'Tarih (format: YYYY-MM-DD veya YYYY-MM-DD HH:mm, opsiyonel, default: bugün)',
     required: false,
   })
-  @IsDateString({}, { message: 'Tarih ISO8601 formatında olmalıdır (YYYY-MM-DD)' })
+  @IsString({ message: 'Tarih string tipinde olmalıdır' })
+  @Matches(/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2})?$/, {
+    message: 'Tarih formatı YYYY-MM-DD veya YYYY-MM-DD HH:mm olmalıdır (örn: "2025-11-21" veya "2025-11-21 15:30")',
+  })
   @IsOptional()
   date?: string;
 
