@@ -382,7 +382,7 @@ export class AnalyticsService {
    */
   async getReportsTrends(userId: string, query: ReportsTrendsQueryDto) {
     try {
-      const startDate = parseDateString(query.start_data);
+      const startDate = parseDateString(query.start_date);
       const endDate = parseDateString(query.end_date);
       endDate.setHours(23, 59, 59, 999);
 
