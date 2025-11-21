@@ -16,6 +16,7 @@ import {
   createPaginationResult,
   getDaysBetween,
 } from '../core';
+import { parseDateString } from '../core/utils/date.util';
 
 // DTO'lar: Rapor sorgu parametreleri
 import {
@@ -265,9 +266,9 @@ export class AnalyticsService {
    */
   async getReportsSummary(userId: string, query: ReportsSummaryQueryDto) {
     try {
-      // Tarih formatı dönüşümü: YYYY-MM-DD string → Date object
-      const startDate = new Date(query.start_date);
-      const endDate = new Date(query.end_date);
+      // Tarih formatı dönüşümü: YYYY-MM-DD string → Date object (timezone-safe)
+      const startDate = parseDateString(query.start_date);
+      const endDate = parseDateString(query.end_date);
       // Bitiş tarihini günün sonuna ayarla (23:59:59)
       endDate.setHours(23, 59, 59, 999);
 
@@ -338,8 +339,8 @@ export class AnalyticsService {
    */
   async getReportsCategories(userId: string, query: ReportsCategoriesQueryDto) {
     try {
-      const startDate = new Date(query.start_date);
-      const endDate = new Date(query.end_date);
+      const startDate = parseDateString(query.start_date);
+      const endDate = parseDateString(query.end_date);
       endDate.setHours(23, 59, 59, 999);
 
       const { page, limit, skip } = parsePagination(query.page, query.results);
@@ -381,8 +382,8 @@ export class AnalyticsService {
    */
   async getReportsTrends(userId: string, query: ReportsTrendsQueryDto) {
     try {
-      const startDate = new Date(query.start_date);
-      const endDate = new Date(query.end_date);
+      const startDate = parseDateString(query.start_data);
+      const endDate = parseDateString(query.end_date);
       endDate.setHours(23, 59, 59, 999);
 
       const { page, limit, skip } = parsePagination(query.page, query.results);

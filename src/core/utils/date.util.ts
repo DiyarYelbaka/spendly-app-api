@@ -209,25 +209,9 @@ export function parseDateString(dateString: string): Date {
      * 
      * Örnek: "2025-11-21"
      */
-    const [year, month, day] = dateString.split('-').map(Number);
-
-    /**
-     * Local timezone'da Date nesnesi oluştur (sadece tarih, saat 00:00:00)
-     * 
-     * new Date(year, month - 1, day):
-     *   - year: Yıl (2025)
-     *   - month - 1: Ay (0-indexed, yani 10 = Kasım)
-     *   - day: Gün (21)
-     * 
-     * Bu constructor, local timezone'da o günün başlangıcını (00:00:00) oluşturur.
-     * Timezone farkından etkilenmez.
-     * 
-     * Örnek:
-     *   new Date(2025, 10, 21) → 2025-11-21 00:00:00 local time
-     *   Türkiye'de: 2025-11-21 00:00:00+03:00
-     *   ABD'de: 2025-11-21 00:00:00-05:00
-     */
-    return new Date(year, month - 1, day);
+    // Sadece YYYY-MM-DD formatı ise
+    // 'T00:00:00' ekleyerek JS'in bunu local time olarak yorumlamasını sağla, UTC varsayımından kaçın
+    return new Date(`${dateString}T00:00:00`);
   }
 }
 
