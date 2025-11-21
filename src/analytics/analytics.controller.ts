@@ -31,6 +31,7 @@ import {
   ReportsSummaryQueryDto,
   ReportsCategoriesQueryDto,
   ReportsTrendsQueryDto,
+  SeedDataQueryDto,
 } from './dto/reports-query.dto';
 
 /**
@@ -274,37 +275,19 @@ export class AnalyticsController {
 
   /**
    * seedTestData: Test verisi oluşturma endpoint'i
-   * 
-   * HTTP Metodu: POST
-   * URL: /api/analytics/seed-test-data
-   * 
-   * Bu endpoint, Ekim, Kasım, Aralık ayları için rastgele gelir-gider işlemleri oluşturur.
-   * Kullanıcının mevcut kategorilerini kullanır.
-   * 
-   * @Post('seed-test-data'): Bu fonksiyonun POST /api/analytics/seed-test-data isteğine yanıt vereceğini belirtir
-   * 
-   * Parametreler:
-   * @CurrentUser() user: Mevcut kullanıcı bilgisi
-   * 
-   * Dönüş Değeri:
-   * - 200 OK: Test verileri başarıyla oluşturuldu
-   *   {
-   *     success: true,
-   *     message: "Test verileri başarıyla oluşturuldu",
-   *     created_transactions: 150,
-   *     income_categories_used: 3,
-   *     expense_categories_used: 8,
-   *     months: "Ekim, Kasım, Aralık"
-   *   }
-   * 
-   * Not: Bu endpoint sadece test/development amaçlıdır.
+   *
+   * @param user - Mevcut kullanıcı bilgisi
+   * @param query - Test verisi oluşturma seçenekleri (yıl, ay, ay sayısı)
+   * @returns Oluşturulan işlem sayıları ve başarı durumu
    */
   @Post('seed-test-data')
-  @ApiOperation({ summary: 'Test verisi oluştur (Ekim-Kasım-Aralık)' })
-  @ApiResponse({ status: 200, description: 'Test verileri oluşturuldu' })
-  @ApiResponse({ status: 400, description: 'Kategori bulunamadı' })
-  async seedTestData(@CurrentUser() user: UserPayload) {
-    return await this.analyticsService.seedTestData(user.id);
+  @ApiOperation({ summary: 'Test verisi oluştur' })
+  @ApiResponse({ status: 201, description: 'Test verileri başarıyla oluşturuldu' })
+  async seedTestData(
+    @CurrentUser() user: UserPayload,
+    @Query() query: SeedDataQueryDto,
+  ) {
+    return this.analyticsService.seedTestData(user.id, query);
   }
 }
 

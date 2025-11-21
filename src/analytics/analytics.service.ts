@@ -1,7 +1,7 @@
 // NestJS: Backend framework'ü
 // Injectable: Bu sınıfın NestJS'in dependency injection sistemine dahil olduğunu belirtir
 // Logger: Loglama (kayıt tutma) için
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 
 // PrismaService: Veritabanı işlemlerini yapmak için
 // ErrorHandler: Hataları yönetmek için
@@ -23,6 +23,7 @@ import {
   ReportsCategoriesQueryDto,
   ReportsTrendsQueryDto,
   ReportPeriod,
+  SeedDataQueryDto,
 } from './dto/reports-query.dto';
 
 /**
@@ -330,82 +331,35 @@ export class AnalyticsService {
 
   /**
    * getReportsCategories: Kategori bazlı raporlar
-   * 
-   * @param userId: string - Kullanıcı ID'si
-   * @param query: ReportsCategoriesQueryDto - Tarih aralığı ve tip parametreleri
-   * 
-   * @returns Promise<PaginatedDataDto> - Kategori listesi ve sayfalama bilgileri
+   *
+   * @param userId - Kullanıcı ID'si
+   * @param query - Rapor sorgu parametreleri
+   * @returns Kategori bazlı rapor verileri ve sayfalama bilgileri
    */
   async getReportsCategories(userId: string, query: ReportsCategoriesQueryDto) {
     try {
-      // Tarih formatı dönüşümü
       const startDate = new Date(query.start_date);
       const endDate = new Date(query.end_date);
       endDate.setHours(23, 59, 59, 999);
 
-      // Sayfalama parametrelerini işle
       const { page, limit, skip } = parsePagination(query.page, query.results);
 
-      // Kategorilere göre grupla ve toplamları hesapla
-      const categoryStats = await this.prisma.transaction.groupBy({
-        by: ['categoryId'],
-        where: {
-          userId,
-          type: query.type,
-          date: {
-            gte: startDate,
-            lte: endDate,
-          },
-        },
-        _sum: {
-          amount: true,
-        },
-        _count: true,
-      });
-
-      // Kategori ID'lerini topla
-      const categoryIds = categoryStats.map((stat) => stat.categoryId).filter(Boolean);
-
-      // Kategori detaylarını getir
-      const categories = await this.prisma.category.findMany({
-        where: {
-          id: { in: categoryIds },
-          userId,
-          type: query.type,
-        },
-      });
-
-      // Toplam tutarı hesapla (yüzde için)
-      const totalAmount = categoryStats.reduce(
-        (sum, stat) => sum + (stat._sum.amount?.toNumber() || 0),
-        0,
+      // Belirtilen tiplere göre kategori istatistiklerini hesapla
+      const typesToFetch = query.type ? [query.type] : ['income', 'expense'];
+      const categoriesWithStats = await this._getAggregatedCategoryStats(
+        userId,
+        startDate,
+        endDate,
+        typesToFetch,
       );
 
-      // JavaScript'te birleştir, yüzde hesapla, sırala
-      const categoriesWithStats = categories
-        .map((category) => {
-          const stat = categoryStats.find((s) => s.categoryId === category.id);
-          const amount = stat?._sum.amount?.toNumber() || 0;
-          return {
-            ...formatCategory(category),
-            total_amount: amount,
-            transaction_count: stat?._count || 0,
-            percentage: totalAmount > 0 ? Math.round((amount / totalAmount) * 100 * 100) / 100 : 0,
-          };
-        })
-        .sort((a, b) => b.total_amount - a.total_amount); // DESC sıralama
-
-      // Toplam kayıt sayısı
+      // Sayfalama uygula ve sonucu formatla
       const total = categoriesWithStats.length;
-
-      // Sayfalama uygula
-      const paginatedCategories = categoriesWithStats.slice(skip, skip + limit);
-
-      // Sayfalama sonuç bilgilerini oluştur
+      const paginatedItems = categoriesWithStats.slice(skip, skip + limit);
       const pagination = createPaginationResult(total, page, limit);
 
       return {
-        items: paginatedCategories,
+        items: paginatedItems,
         pagination,
       };
     } catch (error) {
@@ -419,24 +373,21 @@ export class AnalyticsService {
   }
 
   /**
-   * getReportsTrends: Trend verileri (saatlik veya günlük)
-   * 
-   * @param userId: string - Kullanıcı ID'si
-   * @param query: ReportsTrendsQueryDto - Tarih aralığı ve periyot parametreleri
-   * 
-   * @returns Promise<TrendData> - Trend verileri
+   * getReportsTrends: Trend verileri (saatlik, günlük, haftalık, aylık veya işlem bazlı)
+   *
+   * @param userId - Kullanıcı ID'si
+   * @param query - Rapor sorgu parametreleri
+   * @returns Trend verileri ve sayfalama bilgileri
    */
   async getReportsTrends(userId: string, query: ReportsTrendsQueryDto) {
     try {
-      // Tarih formatı dönüşümü
       const startDate = new Date(query.start_date);
       const endDate = new Date(query.end_date);
       endDate.setHours(23, 59, 59, 999);
 
-      // Sayfalama parametrelerini işle
       const { page, limit, skip } = parsePagination(query.page, query.results);
 
-      // Tüm işlemleri çek
+      // Tüm işlemleri veritabanından çekerken en yeniden en eskiye sırala
       const transactions = await this.prisma.transaction.findMany({
         where: {
           userId,
@@ -450,233 +401,43 @@ export class AnalyticsService {
           amount: true,
           date: true,
         },
+        orderBy: {
+          date: 'desc', // En yeniden en eskiye sırala
+        },
       });
 
-      if (query.period === ReportPeriod.HOURLY) {
-        // HOURLY: Tarih aralığındaki her günün her saati için veri
-        const days = getDaysBetween(query.start_date, query.end_date);
-        const allHourlyData: any[] = [];
-
-        // Her gün için saatlik veri oluştur
-        days.forEach((dateStr) => {
-          // Bu gündeki işlemleri filtrele (date alanını kullan)
-          const dayTransactions = transactions.filter((t) => {
-            const tDate = typeof t.date === 'string' ? new Date(t.date) : new Date(t.date);
-            const tDateStr = tDate.toISOString().split('T')[0];
-            return tDateStr === dateStr;
-          });
-
-          // Her saat için veri oluştur (0-23)
-          for (let hour = 0; hour < 24; hour++) {
-            // Bu saatteki işlemleri filtrele (date alanını kullan)
-            const hourTransactions = dayTransactions.filter((t) => {
-              const tDate = typeof t.date === 'string' ? new Date(t.date) : new Date(t.date);
-              return tDate.getUTCHours() === hour;
-            });
-
-            // Gelir ve gider hesapla
-            const income = hourTransactions
-              .filter((t) => t.type === 'income')
-              .reduce((sum, t) => sum + t.amount.toNumber(), 0);
-            const expense = hourTransactions
-              .filter((t) => t.type === 'expense')
-              .reduce((sum, t) => sum + t.amount.toNumber(), 0);
-
-            // Sadece veri olan saatleri ekle (income > 0 veya expense > 0)
-            if (income > 0 || expense > 0) {
-              // Tarih+saat formatı: "YYYY-MM-DD HH:00"
-              const datetime = `${dateStr} ${hour.toString().padStart(2, '0')}:00`;
-
-              allHourlyData.push({
-                datetime,
-                income,
-                expense,
-                net: income - expense,
-              });
-            }
-          }
-        });
-
-        // Toplam kayıt sayısı
-        const total = allHourlyData.length;
-
-        // Sayfalama uygula
-        const paginatedData = allHourlyData.slice(skip, skip + limit);
-
-        // Sayfalama sonuç bilgilerini oluştur
-        const pagination = createPaginationResult(total, page, limit);
-
-        return {
-          granularity: 'hourly',
-          start_date: query.start_date.split('T')[0],
-          end_date: query.end_date.split('T')[0],
-          items: paginatedData,
-          pagination,
-        } as any;
-      } else if (query.period === ReportPeriod.DAILY) {
-        // DAILY: Tarih aralığındaki her gün için günlük özet
-        const days = getDaysBetween(query.start_date, query.end_date);
-
-        const dailyData = days
-          .map((dateStr) => {
-            // Bu gündeki işlemleri filtrele
-            const dayTransactions = transactions.filter((t) => {
-              const tDateStr =
-                typeof t.date === 'string'
-                  ? t.date
-                  : new Date(t.date).toISOString().split('T')[0];
-              return tDateStr === dateStr;
-            });
-
-            // Gelir ve gider hesapla
-            const income = dayTransactions
-              .filter((t) => t.type === 'income')
-              .reduce((sum, t) => sum + t.amount.toNumber(), 0);
-            const expense = dayTransactions
-              .filter((t) => t.type === 'expense')
-              .reduce((sum, t) => sum + t.amount.toNumber(), 0);
-
-            return {
-              date: dateStr,
-              income,
-              expense,
-              net: income - expense,
-            };
-          })
-          // Sadece veri olan günleri filtrele (income > 0 veya expense > 0)
-          .filter((data) => data.income > 0 || data.expense > 0);
-
-        // Toplam kayıt sayısı
-        const total = dailyData.length;
-
-        // Sayfalama uygula
-        const paginatedData = dailyData.slice(skip, skip + limit);
-
-        // Sayfalama sonuç bilgilerini oluştur
-        const pagination = createPaginationResult(total, page, limit);
-
-        return {
-          granularity: 'daily',
-          start_date: query.start_date.split('T')[0],
-          end_date: query.end_date.split('T')[0],
-          items: paginatedData,
-          pagination,
-        };
-      } else if (query.period === ReportPeriod.WEEKLY) {
-        // WEEKLY: Tarih aralığındaki her hafta için haftalık özet
-        // Hafta başlangıcı: Pazartesi (ISO 8601 standardı)
-        const weeklyMap = new Map<string, { income: number; expense: number }>();
-
-        transactions.forEach((t) => {
-          const tDate = typeof t.date === 'string' ? new Date(t.date) : new Date(t.date);
-          const year = tDate.getFullYear();
-          const month = tDate.getMonth();
-          const day = tDate.getDate();
-
-          // Haftanın başlangıcını bul (Pazartesi)
-          const date = new Date(year, month, day);
-          const dayOfWeek = date.getDay(); // 0 = Pazar, 1 = Pazartesi, ...
-          const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Pazartesi'ye kadar olan gün sayısı
-          date.setDate(date.getDate() + mondayOffset);
-
-          // Hafta anahtarı: "YYYY-WW" formatı (ISO week)
-          const weekKey = `${date.getFullYear()}-W${this.getWeekNumber(date)}`;
-
-          if (!weeklyMap.has(weekKey)) {
-            weeklyMap.set(weekKey, { income: 0, expense: 0 });
-          }
-
-          const weekData = weeklyMap.get(weekKey)!;
-          const amount = t.amount.toNumber();
-
-          if (t.type === 'income') {
-            weekData.income += amount;
-          } else {
-            weekData.expense += amount;
-          }
-        });
-
-        // Map'i array'e çevir ve sırala
-        const weeklyData = Array.from(weeklyMap.entries())
-          .map(([weekKey, data]) => ({
-            week: weekKey,
-            income: data.income,
-            expense: data.expense,
-            net: data.income - data.expense,
-          }))
-          .filter((data) => data.income > 0 || data.expense > 0)
-          .sort((a, b) => a.week.localeCompare(b.week));
-
-        // Toplam kayıt sayısı
-        const total = weeklyData.length;
-
-        // Sayfalama uygula
-        const paginatedData = weeklyData.slice(skip, skip + limit);
-
-        // Sayfalama sonuç bilgilerini oluştur
-        const pagination = createPaginationResult(total, page, limit);
-
-        return {
-          granularity: 'weekly',
-          start_date: query.start_date.split('T')[0],
-          end_date: query.end_date.split('T')[0],
-          items: paginatedData,
-          pagination,
-        };
-      } else if (query.period === ReportPeriod.MONTHLY) {
-        // MONTHLY: Tarih aralığındaki her ay için aylık özet
-        const monthlyMap = new Map<string, { income: number; expense: number }>();
-
-        transactions.forEach((t) => {
-          const tDate = typeof t.date === 'string' ? new Date(t.date) : new Date(t.date);
-          const year = tDate.getFullYear();
-          const month = tDate.getMonth() + 1; // 1-12
-
-          // Ay anahtarı: "YYYY-MM" formatı
-          const monthKey = `${year}-${month.toString().padStart(2, '0')}`;
-
-          if (!monthlyMap.has(monthKey)) {
-            monthlyMap.set(monthKey, { income: 0, expense: 0 });
-          }
-
-          const monthData = monthlyMap.get(monthKey)!;
-          const amount = t.amount.toNumber();
-
-          if (t.type === 'income') {
-            monthData.income += amount;
-          } else {
-            monthData.expense += amount;
-          }
-        });
-
-        // Map'i array'e çevir ve sırala
-        const monthlyData = Array.from(monthlyMap.entries())
-          .map(([monthKey, data]) => ({
-            month: monthKey,
-            income: data.income,
-            expense: data.expense,
-            net: data.income - data.expense,
-          }))
-          .filter((data) => data.income > 0 || data.expense > 0)
-          .sort((a, b) => a.month.localeCompare(b.month));
-
-        // Toplam kayıt sayısı
-        const total = monthlyData.length;
-
-        // Sayfalama uygula
-        const paginatedData = monthlyData.slice(skip, skip + limit);
-
-        // Sayfalama sonuç bilgilerini oluştur
-        const pagination = createPaginationResult(total, page, limit);
-
-        return {
-          granularity: 'monthly',
-          start_date: query.start_date.split('T')[0],
-          end_date: query.end_date.split('T')[0],
-          items: paginatedData,
-          pagination,
-        };
+      // Periyoda göre uygun raporlama fonksiyonunu çağır
+      let items: any[];
+      switch (query.period) {
+        case ReportPeriod.HOURLY:
+          items = this._getHourlyReport(transactions);
+          break;
+        case ReportPeriod.DAILY:
+          items = this._getDailyReport(transactions);
+          break;
+        case ReportPeriod.WEEKLY:
+          items = this._getWeeklyReport(transactions);
+          break;
+        case ReportPeriod.MONTHLY:
+          items = this._getMonthlyReport(transactions);
+          break;
+        default:
+          items = this._getTransactionalReport(transactions);
+          break;
       }
+
+      // Sayfalama uygula ve sonucu formatla
+      const total = items.length;
+      const paginatedItems = items.slice(skip, skip + limit);
+      const pagination = createPaginationResult(total, page, limit);
+
+      return {
+        granularity: query.period || 'transaction',
+        start_date: query.start_date.split('T')[0],
+        end_date: query.end_date.split('T')[0],
+        items: paginatedItems,
+        pagination,
+      };
     } catch (error) {
       ErrorHandler.handleError(
         error,
@@ -687,163 +448,333 @@ export class AnalyticsService {
     }
   }
 
+  // ===================================================================================
+  // PRIVATE HELPER METHODS
+  // ===================================================================================
+
   /**
-   * seedTestData: Test verisi oluşturma fonksiyonu
-   * 
-   * Ekim, Kasım, Aralık ayları için rastgele gelir-gider işlemleri oluşturur.
-   * Kullanıcının mevcut kategorilerini kullanır.
-   * 
-   * @param userId: string - Kullanıcı ID'si
-   * 
-   * @returns Promise<SeedResult> - Oluşturulan işlem sayıları
+   * Belirtilen işlem tipleri için kategori istatistiklerini toplar ve işler.
+   *
+   * @param userId - Kullanıcı ID'si
+   * @param startDate - Başlangıç tarihi
+   * @param endDate - Bitiş tarihi
+   * @param types - İşlem tipleri dizisi (['income'], ['expense'], veya ['income', 'expense'])
+   * @returns İşlenmiş ve sıralanmış kategori istatistikleri
    */
-  async seedTestData(userId: string) {
+  private async _getAggregatedCategoryStats(
+    userId: string,
+    startDate: Date,
+    endDate: Date,
+    types: string[],
+  ) {
+    // 1. Her tip için paralel olarak 'groupBy' sorgusu çalıştır
+    const statsPromises = types.map((type) =>
+      this.prisma.transaction.groupBy({
+        by: ['categoryId'],
+        where: { userId, type, date: { gte: startDate, lte: endDate } },
+        _sum: { amount: true },
+        _count: true,
+      }),
+    );
+    const statsResults = await Promise.all(statsPromises);
+    const allStats = statsResults.flat().map((stat, index) => ({
+      ...stat,
+      type: types[Math.floor(index / statsResults[0].length)], // Hangi tipe ait olduğunu ekle
+    }));
+
+    if (allStats.length === 0) return [];
+
+    // 2. İlgili tüm kategorileri tek seferde veritabanından çek
+    const categoryIds = allStats.map((stat) => stat.categoryId).filter(Boolean);
+    const categories = await this.prisma.category.findMany({
+      where: { id: { in: categoryIds }, userId },
+    });
+
+    // 3. Verileri bellekte birleştir ve işle
+    const totalAmount = allStats.reduce(
+      (sum, stat) => sum + (stat._sum.amount?.toNumber() || 0),
+      0,
+    );
+
+    return categories
+      .map((category) => {
+        const stat = allStats.find(
+          (s) => s.categoryId === category.id && s.type === category.type,
+        );
+        const amount = stat?._sum.amount?.toNumber() || 0;
+        return {
+          ...formatCategory(category),
+          total_amount: amount,
+          transaction_count: stat?._count || 0,
+          percentage:
+            totalAmount > 0
+              ? Math.round((amount / totalAmount) * 100 * 100) / 100
+              : 0,
+        };
+      })
+      .filter((item) => item.total_amount > 0)
+      .sort((a, b) => b.total_amount - a.total_amount);
+  }
+
+  /**
+   * İşlem listesini formatlar.
+   * @param transactions - Veritabanından çekilen işlem verileri
+   * @returns Formatlanmış işlem listesi
+   */
+  private _getTransactionalReport(transactions: any[]) {
+    return transactions.map((t) => {
+      const tDate = typeof t.date === 'string' ? new Date(t.date) : t.date;
+
+      const year = tDate.getFullYear();
+      const month = (tDate.getMonth() + 1).toString().padStart(2, '0');
+      const day = tDate.getDate().toString().padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
+
+      const hour = tDate.getHours().toString().padStart(2, '0');
+      const minute = tDate.getMinutes().toString().padStart(2, '0');
+      const second = tDate.getSeconds().toString().padStart(2, '0');
+      const timeStr = `${hour}:${minute}:${second}`;
+      const amount = t.amount.toNumber();
+
+      return {
+        date: dateStr,
+        period: timeStr,
+        type: t.type,
+        amount,
+        income: t.type === 'income' ? amount : 0,
+        expense: t.type === 'expense' ? amount : 0,
+        net: t.type === 'income' ? amount : -amount,
+      };
+    });
+  }
+
+  /**
+   * Saatlik trend raporu oluşturur.
+   * @param transactions - Veritabanından çekilen işlem verileri
+   * @returns Saatlik gruplanmış rapor
+   */
+  private _getHourlyReport(transactions: any[]) {
+    const hourlyMap = new Map<string, { income: number; expense: number }>();
+
+    transactions.forEach((t) => {
+      const tDate = typeof t.date === 'string' ? new Date(t.date) : t.date;
+      const year = tDate.getFullYear();
+      const month = (tDate.getMonth() + 1).toString().padStart(2, '0');
+      const day = tDate.getDate().toString().padStart(2, '0');
+      const hour = tDate.getHours().toString().padStart(2, '0');
+      const key = `${year}-${month}-${day} ${hour}`;
+
+      if (!hourlyMap.has(key)) {
+        hourlyMap.set(key, { income: 0, expense: 0 });
+      }
+
+      const hourData = hourlyMap.get(key)!;
+      const amount = t.amount.toNumber();
+      if (t.type === 'income') {
+        hourData.income += amount;
+      } else {
+        hourData.expense += amount;
+      }
+    });
+
+    return Array.from(hourlyMap.entries())
+      .map(([key, data]) => {
+        const [date, hour] = key.split(' ');
+        return {
+          date: date,
+          period: `${hour}:00:00`,
+          income: data.income,
+          expense: data.expense,
+          net: data.income - data.expense,
+        };
+      })
+      .sort((a, b) => (b.date + b.period).localeCompare(a.date + a.period));
+  }
+
+  /**
+   * Günlük trend raporu oluşturur.
+   * @param transactions - Veritabanından çekilen işlem verileri
+   * @returns Günlük gruplanmış rapor
+   */
+  private _getDailyReport(transactions: any[]) {
+    const dailyMap = new Map<string, { income: number; expense: number }>();
+
+    transactions.forEach((t) => {
+      const tDate = typeof t.date === 'string' ? new Date(t.date) : t.date;
+      const year = tDate.getFullYear();
+      const month = (tDate.getMonth() + 1).toString().padStart(2, '0');
+      const day = tDate.getDate().toString().padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
+
+      if (!dailyMap.has(dateStr)) {
+        dailyMap.set(dateStr, { income: 0, expense: 0 });
+      }
+
+      const dayData = dailyMap.get(dateStr)!;
+      const amount = t.amount.toNumber();
+      if (t.type === 'income') {
+        dayData.income += amount;
+      } else {
+        dayData.expense += amount;
+      }
+    });
+
+    return Array.from(dailyMap.entries())
+      .map(([dateStr, data]) => ({
+        date: dateStr,
+        period: '00:00:00',
+        income: data.income,
+        expense: data.expense,
+        net: data.income - data.expense,
+      }))
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }
+
+  /**
+   * Haftalık trend raporu oluşturur.
+   * @param transactions - Veritabanından çekilen işlem verileri
+   * @returns Haftalık gruplanmış rapor
+   */
+  private _getWeeklyReport(transactions: any[]) {
+    const weeklyMap = new Map<string, { income: number; expense: number }>();
+
+    transactions.forEach((t) => {
+      const tDate = typeof t.date === 'string' ? new Date(t.date) : t.date;
+      const year = tDate.getFullYear();
+      const month = tDate.getMonth();
+      const day = tDate.getDate();
+
+      const date = new Date(year, month, day);
+      const dayOfWeek = date.getDay();
+      const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      const weekStartDate = new Date(date);
+      weekStartDate.setDate(weekStartDate.getDate() + mondayOffset);
+
+      const weekYear = weekStartDate.getFullYear();
+      const weekMonth = (weekStartDate.getMonth() + 1).toString().padStart(2, '0');
+      const weekDay = weekStartDate.getDate().toString().padStart(2, '0');
+      const weekKey = `${weekYear}-${weekMonth}-${weekDay}`;
+
+      if (!weeklyMap.has(weekKey)) {
+        weeklyMap.set(weekKey, { income: 0, expense: 0 });
+      }
+
+      const weekData = weeklyMap.get(weekKey)!;
+      const amount = t.amount.toNumber();
+      if (t.type === 'income') {
+        weekData.income += amount;
+      } else {
+        weekData.expense += amount;
+      }
+    });
+
+    return Array.from(weeklyMap.entries())
+      .map(([dateStr, data]) => ({
+        date: dateStr,
+        period: '00:00:00',
+        income: data.income,
+        expense: data.expense,
+        net: data.income - data.expense,
+      }))
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }
+
+  /**
+   * Aylık trend raporu oluşturur.
+   * @param transactions - Veritabanından çekilen işlem verileri
+   * @returns Aylık gruplanmış rapor
+   */
+  private _getMonthlyReport(transactions: any[]) {
+    const monthlyMap = new Map<string, { income: number; expense: number }>();
+
+    transactions.forEach((t) => {
+      const tDate = typeof t.date === 'string' ? new Date(t.date) : t.date;
+      const year = tDate.getFullYear();
+      const month = (tDate.getMonth() + 1).toString().padStart(2, '0');
+      const monthKey = `${year}-${month}-01`;
+
+      if (!monthlyMap.has(monthKey)) {
+        monthlyMap.set(monthKey, { income: 0, expense: 0 });
+      }
+
+      const monthData = monthlyMap.get(monthKey)!;
+      const amount = t.amount.toNumber();
+      if (t.type === 'income') {
+        monthData.income += amount;
+      } else {
+        monthData.expense += amount;
+      }
+    });
+
+    return Array.from(monthlyMap.entries())
+      .map(([dateStr, data]) => ({
+        date: dateStr,
+        period: '00:00:00',
+        income: data.income,
+        expense: data.expense,
+        net: data.income - data.expense,
+      }))
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }
+
+  /**
+   * Test verisi oluşturur.
+   * 
+   * @param userId - Kullanıcı ID'si
+   * @param options - Veri oluşturma seçenekleri (yıl, ay, ay sayısı)
+   * @returns Oluşturulan veri hakkında özet bilgi
+   */
+  async seedTestData(userId: string, options: SeedDataQueryDto) {
     try {
-      // Kullanıcının tüm kategorilerini al
-      const categories = await this.prisma.category.findMany({
-        where: {
-          userId,
-          isActive: true,
-        },
-      });
+      // 1. Kategorileri Çek
+      const { incomeCategories, expenseCategories } = await this._getSeedCategories(userId);
 
-      if (categories.length === 0) {
-        throw new Error('Kategori bulunamadı. Önce kategori oluşturun.');
-      }
+      // 2. Tarih Aralığını Belirle
+      const dateRanges = this._getSeedDateRanges(options);
+      
+      let transactions = [];
+      
+      // 3. Her ay için işlem oluştur
+      for (const { year, month } of dateRanges) {
+        // Ayın belirli günlerinde düzenli gelir/gider ekle
+        this._createFixedTransactions(transactions, userId, year, month, incomeCategories, expenseCategories);
 
-      // Gelir ve gider kategorilerini ayır
-      const incomeCategories = categories.filter((cat) => cat.type === 'income');
-      const expenseCategories = categories.filter((cat) => cat.type === 'expense');
-
-      if (incomeCategories.length === 0 && expenseCategories.length === 0) {
-        throw new Error('Gelir veya gider kategorisi bulunamadı.');
-      }
-
-      const transactions = [];
-      const months = [
-        { month: 0, year: 2025, name: 'Ocak' }, // Ocak 2025
-        { month: 1, year: 2025, name: 'Şubat' }, // Şubat 2025
-        { month: 2, year: 2025, name: 'Mart' }, // Mart 2025
-        { month: 3, year: 2025, name: 'Nisan' }, // Nisan 2025
-        { month: 4, year: 2025, name: 'Mayıs' }, // Mayıs 2025
-        { month: 5, year: 2025, name: 'Haziran' }, // Haziran 2025
-        { month: 6, year: 2025, name: 'Temmuz' }, // Temmuz 2025
-        { month: 7, year: 2025, name: 'Ağustos' }, // Ağustos 2025
-        { month: 8, year: 2025, name: 'Eylül' }, // Eylül 2025
-        { month: 9, year: 2025, name: 'Ekim' }, // Ekim 2025
-        { month: 10, year: 2025, name: 'Kasım' }, // Kasım 2025
-        { month: 11, year: 2025, name: 'Aralık' }, // Aralık 2025
-      ];
-
-      // Her ay için işlemler oluştur
-      for (const monthData of months) {
-        const daysInMonth = new Date(monthData.year, monthData.month + 1, 0).getDate();
-
-        // Her gün için rastgele işlemler oluştur
-        // Normal bir kullanıcı günde 2-8 işlem ekleyebilir (daha fazla veri)
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
         for (let day = 1; day <= daysInMonth; day++) {
-          // Günlerin %90'ında en az 1 işlem olsun (daha fazla veri)
-          const hasTransaction = Math.random() < 0.9;
-          
-          if (hasTransaction) {
-            // Günde 2-8 işlem (rastgele) - daha fazla veri için
-            const transactionsPerDay = Math.floor(Math.random() * 7) + 2;
+          const currentDate = new Date(year, month, day);
+          const dayOfWeek = currentDate.getDay(); // 0: Pazar, 6: Cumartesi
 
-            for (let t = 0; t < transactionsPerDay; t++) {
-              // Rastgele saat (6-23 arası - daha geniş saat aralığı)
-              const hour = Math.floor(Math.random() * 18) + 6;
-              const minute = Math.floor(Math.random() * 60);
-              const second = Math.floor(Math.random() * 60);
+          // Günlerin %80'inde işlem olsun
+          if (Math.random() < 0.8) {
+            // Hafta içi (1-5) daha fazla, hafta sonu (0,6) daha az işlem
+            const transactionsPerDay = (dayOfWeek > 0 && dayOfWeek < 6)
+              ? Math.floor(Math.random() * 4) + 2 // 2-5 arası
+              : Math.floor(Math.random() * 3) + 1; // 1-3 arası
 
-              const transactionDate = new Date(
-                monthData.year,
-                monthData.month,
-                day,
-                hour,
-                minute,
-                second,
-              );
-
-              // Gelir işlemi oluştur (%30 olasılık, eğer gelir kategorisi varsa)
-              // Normal kullanıcılar ayda birkaç kez gelir ekler
-              if (incomeCategories.length > 0 && Math.random() < 0.3) {
-                const randomCategory =
-                  incomeCategories[Math.floor(Math.random() * incomeCategories.length)];
-                // Gelir tutarları daha gerçekçi (2000-20000 arası) - daha geniş aralık
-                const amount = Math.floor(Math.random() * 18000) + 2000;
-
-                transactions.push({
-                  amount,
-                  type: 'income',
-                  description: `${randomCategory.name} - ${monthData.name} ${day}`,
-                  categoryId: randomCategory.id,
-                  date: transactionDate,
-                  userId,
-                  notes: `Test verisi - ${monthData.name} ${day}`,
-                });
-              }
-
-              // Gider işlemi oluştur (%80 olasılık, eğer gider kategorisi varsa)
-              // Normal kullanıcılar günde birkaç gider ekler
-              if (expenseCategories.length > 0 && Math.random() < 0.8) {
-                const randomCategory =
-                  expenseCategories[Math.floor(Math.random() * expenseCategories.length)];
-                // Gider tutarları gerçekçi (20-800 arası - küçük harcamalar daha sık)
-                // Bazen büyük harcamalar da olsun (800-5000 arası - %25 olasılık)
-                let amount;
-                if (Math.random() < 0.25) {
-                  // Büyük harcama (800-5000)
-                  amount = Math.floor(Math.random() * 4200) + 800;
-                } else {
-                  // Küçük harcama (20-800)
-                  amount = Math.floor(Math.random() * 780) + 20;
-                }
-
-                transactions.push({
-                  amount,
-                  type: 'expense',
-                  description: `${randomCategory.name} - ${monthData.name} ${day}`,
-                  categoryId: randomCategory.id,
-                  date: transactionDate,
-                  userId,
-                  notes: `Test verisi - ${monthData.name} ${day}`,
-                });
+            for (let i = 0; i < transactionsPerDay; i++) {
+              const transaction = this._createRandomTransaction(userId, currentDate, incomeCategories, expenseCategories);
+              if (transaction) {
+                transactions.push(transaction);
               }
             }
           }
         }
       }
 
-      // Toplu insert (batch insert)
+      // 4. Verileri Toplu Halde Kaydet
       if (transactions.length > 0) {
-        // Prisma'da createMany kullan, ama her 100'lük gruplar halinde (performans için)
-        const batchSize = 100;
-        let createdCount = 0;
-
-        for (let i = 0; i < transactions.length; i += batchSize) {
-          const batch = transactions.slice(i, i + batchSize);
-          await this.prisma.transaction.createMany({
-            data: batch,
-            skipDuplicates: true,
-          });
-          createdCount += batch.length;
-        }
-
-        return {
-          success: true,
-          message: 'Test verileri başarıyla oluşturuldu',
-          created_transactions: createdCount,
-          income_categories_used: incomeCategories.length,
-          expense_categories_used: expenseCategories.length,
-          months: months.map((m) => `${m.name} 2025`).join(', '),
-        };
-      } else {
-        return {
-          success: false,
-          message: 'Hiç işlem oluşturulamadı',
-          created_transactions: 0,
-        };
+        await this.prisma.transaction.createMany({
+          data: transactions,
+          skipDuplicates: true,
+        });
       }
+
+      return {
+        success: true,
+        message: 'Test verileri başarıyla oluşturuldu.',
+        created_transactions: transactions.length,
+        date_range: `${dateRanges[0].year}-${dateRanges[0].month + 1} to ${dateRanges[dateRanges.length - 1].year}-${dateRanges[dateRanges.length - 1].month + 1}`,
+      };
     } catch (error) {
       ErrorHandler.handleError(
         error,
@@ -852,6 +783,145 @@ export class AnalyticsService {
         'Test verileri oluşturulurken bir hata oluştu',
       );
     }
+  }
+
+  /**
+   * Test verisi için gelir ve gider kategorilerini çeker.
+   */
+  private async _getSeedCategories(userId: string) {
+    const categories = await this.prisma.category.findMany({
+      where: { userId, isActive: true },
+    });
+    if (categories.length === 0) {
+      throw new BadRequestException('Lütfen önce en az bir kategori oluşturun.');
+    }
+    const incomeCategories = categories.filter((c) => c.type === 'income');
+    const expenseCategories = categories.filter((c) => c.type === 'expense');
+    if (incomeCategories.length === 0 || expenseCategories.length === 0) {
+      throw new BadRequestException('Lütfen hem gelir hem de gider tipi için en az birer kategori oluşturun.');
+    }
+    return { incomeCategories, expenseCategories };
+  }
+
+  /**
+   * Test verisi için tarih aralıklarını belirler.
+   */
+  private _getSeedDateRanges(options: SeedDataQueryDto) {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+
+    if (options.year && options.month) {
+      return [{ year: options.year, month: options.month - 1 }];
+    }
+    
+    const monthsToGenerate = options.months || 3;
+    const dateRanges = [];
+    for (let i = 0; i < monthsToGenerate; i++) {
+      const date = new Date(currentYear, currentMonth - i, 1);
+      dateRanges.push({ year: date.getFullYear(), month: date.getMonth() });
+    }
+    return dateRanges.reverse();
+  }
+
+  /**
+   * Her ayın belirli günlerinde sabit (maaş, kira gibi) işlemler oluşturur.
+   */
+  private _createFixedTransactions(
+    transactions: any[],
+    userId: string,
+    year: number,
+    month: number,
+    incomeCategories: any[],
+    expenseCategories: any[],
+  ) {
+    // Maaş kategorisini bul veya ilk gelir kategorisini kullan
+    const salaryCategory = 
+      incomeCategories.find(c => c.name.toLowerCase().includes('maaş')) || 
+      incomeCategories[0];
+      
+    if (salaryCategory) {
+      transactions.push({
+        userId,
+        categoryId: salaryCategory.id,
+        amount: Math.floor(Math.random() * 10000) + 15000, // 15000 - 25000 arası
+        type: 'income',
+        description: 'Aylık Maaş',
+        date: new Date(year, month, 1, 9, 30, 0),
+        notes: 'Otomatik oluşturulmuş test verisi',
+      });
+    }
+
+    // Kira kategorisini bul veya ilk gider kategorisini kullan
+    const rentCategory = 
+      expenseCategories.find(c => c.name.toLowerCase().includes('kira')) || 
+      expenseCategories[0];
+      
+    if (rentCategory) {
+      transactions.push({
+        userId,
+        categoryId: rentCategory.id,
+        amount: Math.floor(Math.random() * 3000) + 5000, // 5000 - 8000 arası
+        type: 'expense',
+        description: 'Aylık Kira Ödemesi',
+        date: new Date(year, month, 5, 11, 0, 0),
+        notes: 'Otomatik oluşturulmuş test verisi',
+      });
+    }
+  }
+
+  /**
+   * Rastgele bir işlem oluşturur (gelir veya gider).
+   */
+  private _createRandomTransaction(
+    userId: string,
+    date: Date,
+    incomeCategories: any[],
+    expenseCategories: any[],
+  ) {
+    const dayOfWeek = date.getDay();
+
+    // Saati günün mantıklı zaman dilimlerine yay
+    let hour: number;
+    if (dayOfWeek > 0 && dayOfWeek < 6) { // Hafta içi
+      hour = (Math.random() < 0.3) 
+        ? Math.floor(Math.random() * 2) + 8 // %30 ihtimalle sabah (8-9)
+        : Math.floor(Math.random() * 10) + 12; // %70 ihtimalle öğleden sonra/akşam (12-21)
+    } else { // Hafta sonu
+      hour = Math.floor(Math.random() * 12) + 11; // 11:00 - 22:00 arası
+    }
+    
+    const minute = Math.floor(Math.random() * 60);
+    const second = Math.floor(Math.random() * 60);
+    const transactionDate = new Date(date.getFullYear(), date.getMonth(), date.getDate(), hour, minute, second);
+
+    // Hafta sonu gelir olma ihtimali daha düşük
+    const isIncome = (dayOfWeek === 0 || dayOfWeek === 6) ? Math.random() < 0.05 : Math.random() < 0.1;
+
+    if (isIncome && incomeCategories.length > 0) {
+      const category = incomeCategories.find(c => !c.name.toLowerCase().includes('maaş')) || incomeCategories[0];
+      return {
+        userId,
+        categoryId: category.id,
+        amount: Math.floor(Math.random() * 1500) + 100, // 100 - 1600 arası ek gelir
+        type: 'income',
+        description: `Ek Gelir #${Math.floor(Math.random() * 100)}`,
+        date: transactionDate,
+        notes: 'Otomatik oluşturulmuş test verisi',
+      };
+    } else if (expenseCategories.length > 0) {
+      const category = expenseCategories[Math.floor(Math.random() * expenseCategories.length)];
+      return {
+        userId,
+        categoryId: category.id,
+        amount: Math.floor(Math.random() * 400) + 10, // 10 - 410 arası harcama
+        type: 'expense',
+        description: `${category.name} harcaması #${Math.floor(Math.random() * 100)}`,
+        date: transactionDate,
+        notes: 'Otomatik oluşturulmuş test verisi',
+      };
+    }
+    return null;
   }
 }
 

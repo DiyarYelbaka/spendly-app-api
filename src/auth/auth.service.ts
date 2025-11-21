@@ -38,38 +38,26 @@ export class AuthService {
 
   async register(dto: RegisterDto) {
     try {
-      // Email kontrolü
+      // 1. E-postanın zaten kayıtlı olup olmadığını kontrol et
       const existingUser = await this.prisma.user.findUnique({
         where: { email: dto.email },
       });
 
-      if (existingUser) {
-        throw new ConflictException({
-          message: 'Bu email adresi zaten kullanılıyor',
-          messageKey: 'EMAIL_ALREADY_EXISTS',
-          error: 'CONFLICT',
-        });
-      }
-
-      // Password ve confirmPassword eşleşme kontrolü
-      if (dto.password !== dto.confirmPassword) {
+      // Eğer aktif bir kullanıcı zaten varsa, hata fırlat
+      if (existingUser && existingUser.isActive) {
         throw new BadRequestException({
-          message: 'Şifreler eşleşmiyor',
-          messageKey: 'PASSWORD_MISMATCH',
+          message: 'Bu e-posta adresi zaten kullanımda.',
+          messageKey: 'EMAIL_ALREADY_EXISTS',
           error: 'BAD_REQUEST',
-          fields: {
-            confirmPassword: [
-              {
-                message: 'Şifreler eşleşmiyor',
-                value: dto.confirmPassword,
-                location: 'body',
-              },
-            ],
-          },
         });
       }
 
-      // Password hash
+      // Eğer inaktif bir kullanıcı varsa, onu sil ve işleme devam et
+      if (existingUser && existingUser.isActive === false) {
+        await this.prisma.user.delete({ where: { id: existingUser.id } });
+      }
+
+      // 2. Şifreyi hash'le
       const hashedPassword = await bcrypt.hash(dto.password, 10);
 
       // Transaction içinde user ve default kategorileri oluştur
@@ -134,7 +122,8 @@ export class AuthService {
         where: { email: dto.email },
       });
 
-      if (!user) {
+      // Kullanıcı bulunamazsa veya aktif değilse, standart hata mesajı ver
+      if (!user || !user.isActive) {
         throw new UnprocessableEntityException({
           message: 'Email veya şifre hatalı',
           messageKey: 'INVALID_CREDENTIALS',
@@ -703,15 +692,26 @@ export class AuthService {
       // Email ile kullanıcıyı kontrol et
       let user = await this.prisma.user.findUnique({
         where: { email },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          createdAt: true,
-        },
       });
 
-      // Kullanıcı yoksa oluştur
+      // Eğer aktif bir kullanıcı zaten varsa ve şifre ile kayıt olmuşsa,
+      // Google ile giriş yapmasını engelle.
+      if (user && user.isActive && user.password) {
+        throw new BadRequestException({
+          message:
+            'Bu e-posta adresi şifre ile kayıtlıdır. Lütfen şifrenizle giriş yapın.',
+          messageKey: 'EMAIL_ALREADY_EXISTS_WITH_PASSWORD',
+          error: 'BAD_REQUEST',
+        });
+      }
+
+      // Eğer inaktif bir kullanıcı varsa, onu sil ve yeni bir tane oluşturulmasını sağla
+      if (user && user.isActive === false) {
+        await this.prisma.user.delete({ where: { id: user.id } });
+        user = null; // Kullanıcıyı null yaparak aşağıda yeniden oluşturulmasını tetikle
+      }
+
+      // Kullanıcı yoksa (ya da yeni silindiyse) oluştur
       if (!user) {
         // Transaction içinde user ve default kategorileri oluştur
         const result = await this.prisma.$transaction(async (tx: any) => {

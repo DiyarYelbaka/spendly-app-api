@@ -23,6 +23,7 @@ import { AuthModule } from './auth/auth.module';
 import { CategoriesModule } from './categories/categories.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { UsersModule } from './users/users.module';
 
 // JwtModule: JWT token işlemleri için
 // Bu modül, JWT token oluşturma ve doğrulama işlemlerini yapar
@@ -77,6 +78,7 @@ import openaiConfig from './config/openai.config';
     CategoriesModule,
     TransactionsModule,
     AnalyticsModule,
+    UsersModule,
     // JWT Module for middleware
     // Middleware'de JWT token'ı doğrulamak için gerekli
     JwtModule.register({

@@ -6,9 +6,13 @@ import {
   IsDateString,
   IsNotEmpty,
   IsEnum,
+  IsOptional,
   registerDecorator,
   ValidationOptions,
   ValidationArguments,
+  IsInt,
+  Min,
+  Max,
 } from 'class-validator';
 
 // PaginationQueryDto: Sayfalama için kullanılan temel sınıf
@@ -180,19 +184,21 @@ export class ReportsCategoriesQueryDto extends PaginationQueryDto {
   /**
    * type: İşlem tipi (gelir veya gider)
    * 
-   * @IsEnum(): TransactionType enum'undaki değerlerden biri olmalıdır
-   * @IsNotEmpty(): Zorunlu alan
+   * @IsOptional(): Bu alanın gönderilmesi zorunlu değildir
+   * @IsEnum(): Eğer gönderilirse, TransactionType enum'undaki değerlerden biri olmalıdır
+   * 
+   * Eğer type gönderilmezse, hem gelir hem gider kategorileri birlikte döndürülür.
    */
-  @ApiProperty({
-    description: 'İşlem tipi (income veya expense)',
+  @ApiPropertyOptional({
+    description: 'İşlem tipi (income veya expense). Gönderilmezse hem gelir hem gider kategorileri döndürülür.',
     enum: TransactionType,
     example: 'expense',
   })
+  @IsOptional()
   @IsEnum(TransactionType, {
     message: 'İşlem tipi income veya expense olmalıdır',
   })
-  @IsNotEmpty({ message: 'İşlem tipi zorunludur' })
-  type: TransactionType;
+  type?: TransactionType;
 }
 
 /**
@@ -232,18 +238,54 @@ export class ReportsTrendsQueryDto extends PaginationQueryDto {
   /**
    * period: Rapor periyodu (günlük, haftalık, aylık)
    * 
-   * @IsEnum(): ReportPeriod enum'undaki değerlerden biri olmalıdır
-   * @IsNotEmpty(): Zorunlu alan
+   * @IsOptional(): Bu alanın gönderilmesi zorunlu değildir
+   * @IsEnum(): Eğer gönderilirse, ReportPeriod enum'undaki değerlerden biri olmalıdır
+   * 
+   * Eğer period gönderilmezse, tüm işlemler saat ve tarih bilgisiyle birlikte döndürülür.
    */
-  @ApiProperty({
-    description: 'Rapor periyodu (hourly, daily, weekly, monthly)',
+  @ApiPropertyOptional({
+    description: 'Rapor periyodu (hourly, daily, weekly, monthly). Gönderilmezse tüm işlemler saat ve tarih bilgisiyle döndürülür.',
     enum: ReportPeriod,
     example: 'monthly',
   })
+  @IsOptional()
   @IsEnum(ReportPeriod, {
     message: 'Rapor periyodu hourly, daily, weekly veya monthly olmalıdır',
   })
-  @IsNotEmpty({ message: 'Rapor periyodu zorunludur' })
-  period: ReportPeriod;
+  period?: ReportPeriod;
+}
+
+/**
+ * SeedDataQueryDto Sınıfı
+ * 
+ * Test verisi oluşturma endpoint'i için sorgu parametrelerini tanımlar.
+ */
+export class SeedDataQueryDto {
+  @ApiPropertyOptional({
+    description: 'Veri oluşturulacak yıl',
+    example: 2025,
+  })
+  @IsOptional()
+  @IsInt({ message: 'Yıl bir sayı olmalıdır' })
+  year?: number;
+
+  @ApiPropertyOptional({
+    description: 'Veri oluşturulacak ay (1-12)',
+    example: 11,
+  })
+  @IsOptional()
+  @IsInt({ message: 'Ay bir sayı olmalıdır' })
+  @Min(1)
+  @Max(12)
+  month?: number;
+
+  @ApiPropertyOptional({
+    description: 'Kaç aylık veri oluşturulacağı (geçmişe dönük)',
+    example: 3,
+  })
+  @IsOptional()
+  @IsInt({ message: 'Ay sayısı bir sayı olmalıdır' })
+  @Min(1)
+  months?: number;
 }
 
